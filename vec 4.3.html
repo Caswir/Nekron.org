@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vectorweb</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0a0a;
+            color: #00ff00;
+        }
+        .title-font {
+            font-family: 'MedievalSharp', cursive;
+        }
+        .control-panel {
+            background-color: #1a1a1a;
+            border: 1px solid #00ff00;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+        }
+        .btn {
+            background-color: #003300;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            background-color: #00ff00;
+            color: #0a0a0a;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        .btn:disabled {
+            background-color: #002200;
+            color: #006600;
+            border-color: #006600;
+            cursor: not-allowed;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #003300;
+            border-radius: 5px;
+            border: 1px solid #00ff00;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #00ff00;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 5px #00ff00;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #00ff00;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 5px #00ff00;
+        }
+        .canvas-container {
+            position: relative;
+        }
+        canvas {
+            background-color: #000000;
+            border-radius: 0.5rem;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        #reverbSquid {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50%;
+            max-width: 256px;
+            opacity: 0.75;
+            display: none; /* Hidden by default */
+            pointer-events: none;
+        }
+        .active-wave, .chord-btn.active-wave, .active-wave-osc2 {
+            background-color: #00ff00;
+            color: #0a0a0a;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        #notification {
+            position: fixed;
+            bottom: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #1a1a1a;
+            color: #00ff00;
+            padding: 1rem 2rem;
+            border: 1px solid #00ff00;
+            border-radius: 0.5rem;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+            transition: bottom 0.5s ease-in-out;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+        }
+        #notification.show {
+            bottom: 20px;
+        }
+        /* Generic Switch Styles */
+        .generic-switch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #003300;
+            border: 1px solid #00ff00;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: #00ff00;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #00ff00;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+            background-color: #003300;
+        }
+        .wave-btn svg, .wave-btn-osc2 svg {
+            margin: auto;
+        }
+
+        /* Knob Styles */
+        .knob-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        .knob-wrapper {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            cursor: ew-resize; /* East-West resize cursor indicates horizontal dragging */
+        }
+        .knob-dial {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 4px solid #00ff00;
+            background: #003300;
+            pointer-events: none; /* The wrapper handles events */
+            transition: transform 0.05s linear;
+        }
+        .knob-dial::before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 12px;
+            background: #00ff00;
+            border-radius: 2px;
+        }
+        .knob-label {
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+        .knob-value {
+            font-size: 0.7rem;
+            color: #009900;
+        }
+        .download-link {
+            display: block;
+            padding: 0.5rem 1rem;
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="absolute top-4 right-4 flex z-50"><a href="https://www.nekron.org/vec"><img src="https://www.nekron.org/squid.gif" alt="Squid Icon" style="height: 30px;"></a><a href="https://www.nekron.org/wavenabber"><img src="https://www.nekron.org/ggsm.png" alt="GGSM Icon" style="height: 30px;"></a><a href="https://www.nekron.org/radar.html"><img src="https://www.nekron.org/moths.png" alt="Moths Icon" style="height: 30px;"></a></div>
+
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <div class="lg:col-span-2">
+            <div class="flex items-center space-x-4 mb-4">
+                <img id="squidIcon" src="https://nekron.org/squid" class="w-12 h-12 cursor-pointer">
+                <h1 class="text-3xl font-bold text-center lg:text-left title-font">Vectorweb 4.2</h1>
+            </div>
+            <div class="aspect-square w-full bg-black border border-green-500 rounded-lg shadow-lg canvas-container">
+                <canvas id="vectorscope"></canvas>
+                <img id="reverbSquid" src="https://nekron.org/squid" alt="Reverb Active">
+            </div>
+	<footer class="text-left py-4">
+ 	   <p class="text-[10px] text-green-500">
+ 	       Created by Nekron 2025.
+	        <a href="https://www.nekroniblis.com" class="underline hover:no-underline">www.nekroniblis.com</a> | 
+            <a href="https://www.nekron.org/" class="underline hover:no-underline">Nekron.org</a> | 
+	        <a href="https://www.nekron.org/wavenabber.html" class="underline hover:no-underline">Wave Nabber</a> | 
+	        <a href="https://www.nekron.org/radar.html" class="underline hover:no-underline">Noise Radar</a>
+ 	   </p>
+</footer>
+        </div>
+
+        <div class="lg:col-span-1 space-y-8">
+            
+             <div class="control-panel">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold title-font">Equalizer</h2>
+                    <button id="resetEqBtn" class="btn px-2 py-1" style="font-size: 10px;">reset</button>
+                </div>
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div class="knob-container" id="gainKnobContainer" data-min="0" data-max="2" data-value="1" data-step="0.01" data-default="1">
+                        <div class="knob-wrapper">
+                            <div class="knob-dial"></div>
+                        </div>
+                        <label class="knob-label">Gain</label>
+                        <span id="gainValue" class="knob-value">100%</span>
+                    </div>
+                     <div class="knob-container" id="midsKnobContainer" data-min="-24" data-max="24" data-value="0" data-step="0.1" data-default="0">
+                        <div class="knob-wrapper">
+                           <div class="knob-dial"></div>
+                        </div>
+                        <label class="knob-label">Mids</label>
+                        <span id="midsValue" class="knob-value">0 dB</span>
+                    </div>
+                     <div class="knob-container" id="bassKnobContainer" data-min="-24" data-max="24" data-value="0" data-step="0.1" data-default="0">
+                        <div class="knob-wrapper">
+                             <div class="knob-dial"></div>
+                        </div>
+                        <label class="knob-label">Bass</label>
+                        <span id="bassValue" class="knob-value">0 dB</span>
+                    </div>
+                </div>
+            </div>
+
+             <div class="control-panel">
+                <h2 class="text-2xl font-semibold mb-4 title-font">Display Mode</h2>
+                <div class="space-y-4">
+                    <button id="toggleDisplay" class="btn w-full py-2 rounded-md">Toggle</button>
+                    <div class="generic-switch pt-2">
+                        <h3 class="font-medium">Mic</h3>
+                        <label class="switch">
+                            <input type="checkbox" id="micToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                     <div>
+                        <label for="micVolume" class="block mb-2 text-center">Input Volume: <span id="micVolValue">100</span>%</label>
+                        <input type="range" id="micVolume" min="0" max="2" value="1" step="0.01" disabled>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h2 class="text-2xl font-semibold mb-4 title-font">Frequency Generator</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="frequency" class="block mb-2 text-center">Frequency: <span id="freqValue">440</span> Hz</label>
+                        <div class="flex items-center space-x-2">
+                            <button id="freq-down" class="btn p-1 rounded-md">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-minus"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                            <input type="range" id="frequency" min="1" max="3000" value="440">
+                            <button id="freq-up" class="btn p-1 rounded-md">
+                               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="font-medium mb-2">Wave Type OSC 1</h3>
+                        <div class="grid grid-cols-4 gap-2">
+                            <button class="wave-btn btn p-2 rounded-md active-wave" data-wave="sine" title="Sine">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c3-9 6-9 9 0s6 9 9 0"/></svg>
+                            </button>
+                            <button class="wave-btn btn p-2 rounded-md" data-wave="square" title="Square">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h6v8h6v-16h6"/></svg>
+                            </button>
+                            <button class="wave-btn btn p-2 rounded-md" data-wave="sawtooth" title="Sawtooth">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 12 6-8 6 16 6-8"/></svg>
+                            </button>
+                            <button class="wave-btn btn p-2 rounded-md" data-wave="triangle" title="Triangle">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h2l4-8 4 16 4-8 4 16h2"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t border-green-700 my-4"></div>
+
+                    <h3 class="font-medium mb-2 text-lg">Oscillator 2</h3>
+                    <div class="generic-switch">
+                        <h3 class="font-medium">Enable OSC 2</h3>
+                        <label class="switch">
+                            <input type="checkbox" id="osc2Enable">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div id="osc2-controls" class="space-y-4 mt-4 hidden">
+                        <div>
+                            <label for="osc2Detune" class="block mb-2 text-center">Detune: <span id="osc2DetuneValue">0</span> cents</label>
+                            <input type="range" id="osc2Detune" min="-1200" max="1200" value="0" step="1">
+                        </div>
+                        <div>
+                            <label for="osc2Mix" class="block mb-2 text-center">Mix (OSC1 | OSC2): <span id="osc2MixValue">50</span>%</label>
+                            <input type="range" id="osc2Mix" min="0" max="1" value="0.5" step="0.01">
+                        </div>
+                        <div>
+                            <h3 class="font-medium mb-2">Wave Type OSC 2</h3>
+                            <div class="grid grid-cols-4 gap-2">
+                                <button class="wave-btn-osc2 btn p-2 rounded-md active-wave-osc2" data-wave="sine" title="Sine">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c3-9 6-9 9 0s6 9 9 0"/></svg>
+                                </button>
+                                <button class="wave-btn-osc2 btn p-2 rounded-md" data-wave="square" title="Square">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h6v8h6v-16h6"/></svg>
+                                </button>
+                                <button class="wave-btn-osc2 btn p-2 rounded-md" data-wave="sawtooth" title="Sawtooth">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 12 6-8 6 16 6-8"/></svg>
+                                </button>
+                                <button class="wave-btn-osc2 btn p-2 rounded-md" data-wave="triangle" title="Triangle">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h2l4-8 4 16 4-8 4 16h2"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-green-700 my-4"></div>
+
+                    <div class="generic-switch pt-2">
+                        <h3 class="font-medium">Arp 3rd 5th</h3>
+                        <label class="switch">
+                            <input type="checkbox" id="arpToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    
+                    <button id="startStopSynth" class="btn w-full py-2 rounded-md mt-4">Start Synth</button>
+
+                    <div class="mt-4">
+                        <h3 class="font-medium mb-2">Major Chords</h3>
+                        <div id="chord-buttons" class="space-y-2">
+                            <div class="grid grid-cols-4 gap-2">
+                                <button class="chord-btn btn py-1" style="font-size: 10px;" data-chord="C">C</button>
+                                <button class="chord-btn btn py-1" style="font-size: 10px;" data-chord="D">D</button>
+                                <button class="chord-btn btn py-1" style="font-size: 10px;" data-chord="E">E</button>
+                                <button class="chord-btn btn py-1" style="font-size: 10px;" data-chord="F">F</button>
+                            </div>
+                            <div class="flex justify-center gap-2">
+                                <button class="chord-btn btn py-1 w-1/4" style="font-size: 10px;" data-chord="G">G</button>
+                                <button class="chord-btn btn py-1 w-1/4" style="font-size: 10px;" data-chord="A">A</button>
+                                <button class="chord-btn btn py-1 w-1/4" style="font-size: 10px;" data-chord="B">B</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="generic-switch pt-4">
+                        <h3 class="font-medium">Randomize Chords</h3>
+                        <label class="switch">
+                            <input type="checkbox" id="randomizeChordsToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h2 class="text-2xl font-semibold mb-4 title-font">Music Player</h2>
+                <div class="space-y-4">
+                    <input type="file" id="audioFile" accept="audio/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-900 file:text-green-300 hover:file:bg-green-700"/>
+                    
+                    <div id="fileName" class="text-sm truncate">No file selected.</div>
+
+                    <div class="flex items-center space-x-4">
+                        <button id="playPauseBtn" class="btn p-3 rounded-full" disabled>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                        </button>
+                        <div class="w-full">
+                            <input type="range" id="seeker" value="0" max="1" step="0.001" class="w-full" disabled>
+                            <div class="flex justify-between text-xs mt-1">
+                                <span id="currentTime">0:00</span>
+                                <span id="duration">0:00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h2 class="text-2xl font-semibold mb-4 title-font">Export</h2>
+                <div class="space-y-4">
+                    <div class="generic-switch">
+                        <h3 class="font-medium">Rec</h3>
+                        <label class="switch">
+                            <input type="checkbox" id="recToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div id="exportLinksContainer" class="hidden">
+                        <a id="downloadVideoLink" class="btn download-link">Download Full Video</a>
+                        <a id="downloadAudioLink" class="btn download-link">Download Only Audio</a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    
+    <div class="max-w-7xl mx-auto mt-8 p-4">
+        <h2 class="text-lg md:text-xl mb-4 text-center text-glow">Nekron Messanger</h2>
+        <iframe
+            src="https://www.nekron.org/messenger/index.html" 
+            style="width: 100%; height: 650px; border: 1px solid #00ff00; border-radius: 0.5rem; background-color: #0a0a0a;"
+            title="Nekron Messenger"
+        ></iframe>
+    </div>
+
+
+    <div id="notification">
+        <span id="notificationMessage"></span>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const vectorscopeCanvas = document.getElementById('vectorscope');
+        const canvasCtx = vectorscopeCanvas.getContext('2d');
+        const audioFileInput = document.getElementById('audioFile');
+        const fileNameDisplay = document.getElementById('fileName');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-play"><polygon points="6 3 20 12 6 21 6 3"/></svg>`;
+        const pauseIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pause"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg>`;
+        const seeker = document.getElementById('seeker');
+        const currentTimeDisplay = document.getElementById('currentTime');
+        const durationDisplay = document.getElementById('duration');
+        const frequencySlider = document.getElementById('frequency');
+        const freqValueDisplay = document.getElementById('freqValue');
+        const freqDownBtn = document.getElementById('freq-down');
+        const freqUpBtn = document.getElementById('freq-up');
+        const waveButtons = document.querySelectorAll('.wave-btn');
+        const startStopSynthBtn = document.getElementById('startStopSynth');
+        const arpToggle = document.getElementById('arpToggle');
+        const chordButtons = document.querySelectorAll('.chord-btn');
+        const randomizeChordsToggle = document.getElementById('randomizeChordsToggle');
+        const micToggle = document.getElementById('micToggle');
+        const toggleDisplayBtn = document.getElementById('toggleDisplay');
+        const micVolumeSlider = document.getElementById('micVolume');
+        const micVolValueDisplay = document.getElementById('micVolValue');
+        const notificationEl = document.getElementById('notification');
+        const notificationMessageEl = document.getElementById('notificationMessage');
+        const resetEqBtn = document.getElementById('resetEqBtn');
+        const squidIcon = document.getElementById('squidIcon');
+        const reverbSquid = document.getElementById('reverbSquid');
+        const recToggle = document.getElementById('recToggle');
+        const exportLinksContainer = document.getElementById('exportLinksContainer');
+        const downloadVideoLink = document.getElementById('downloadVideoLink');
+        const downloadAudioLink = document.getElementById('downloadAudioLink');
+        
+        // OSC 2 DOM Elements
+        const osc2EnableToggle = document.getElementById('osc2Enable');
+        const osc2ControlsContainer = document.getElementById('osc2-controls');
+        const osc2DetuneSlider = document.getElementById('osc2Detune');
+        const osc2DetuneValue = document.getElementById('osc2DetuneValue');
+        const osc2MixSlider = document.getElementById('osc2Mix');
+        const osc2MixValue = document.getElementById('osc2MixValue');
+        const waveButtonsOsc2 = document.querySelectorAll('.wave-btn-osc2');
+
+        // --- Web Audio API Setup ---
+        let audioContext;
+        let analyserNodeL, analyserNodeR;
+        let splitterNode;
+        let audioBuffer;
+        
+        // Audio Nodes
+        let fileSourceNode = null, micStreamSource = null;
+        let oscillatorNode = null, oscillatorNode2 = null; // OSC 1 and 2
+        let synthGainNode = null, synthGainNode2 = null; // Gain for OSC 1 and 2
+        let synthMasterGainNode = null; // Master gain for the synth section
+        let micGainNode = null;
+        let stereoMergerNode = null;
+        let masterGainNode = null, bassFilterNode = null, midsFilterNode = null; // EQ Nodes
+        let convolverNode = null, reverbWetGain = null, reverbDryGain = null; // Reverb Nodes
+        let delayNode = null, delayFeedbackNode = null, delayWetGain = null; // Delay Nodes
+        let mediaStreamDestination = null; // For recording
+        let chordOscillators = [];
+        
+        let playStartTime = 0, startOffset = 0;
+        let timeDataL, timeDataR;
+        let isPlaying = false, isSynthPlaying = false, isMicOn = false, isArpOn = false, isLinearDisplay = false, isChordPlaying = false;
+        let animationFrameId, arpeggiatorInterval = null, chordRandomizerInterval = null;
+        let activeChordButton = null;
+        let baseFrequency = 440; // Master frequency for the synth
+
+        // --- Note Frequencies (A4 = 440Hz) ---
+        const noteFrequencies = {
+            'C': 261.63, 'D': 293.66, 'E': 329.63, 'F': 349.23,
+            'G': 392.00, 'A': 440.00, 'B': 493.88
+        };
+
+        const chordProgressions = [
+            ['C', 'G', 'A', 'F'], ['G', 'D', 'E', 'C'], ['D', 'A', 'B', 'G'],
+            ['A', 'E', 'F', 'D'], ['F', 'C', 'D', 'A']
+        ];
+        let currentProgression = [], progressionIndex = 0;
+
+        // --- Recording Logic ---
+        let mediaRecorder = null;
+        let recordedChunks = [];
+
+        // --- Notification Logic ---
+        let notificationTimeout;
+        function showNotification(message, duration = 4000) {
+            if (notificationTimeout) clearTimeout(notificationTimeout);
+            notificationMessageEl.textContent = message;
+            notificationEl.classList.add('show');
+            notificationTimeout = setTimeout(() => notificationEl.classList.remove('show'), duration);
+        }
+
+        // --- Core Audio Initialization ---
+        function initAudioContext() {
+            if (audioContext) return;
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                masterGainNode = audioContext.createGain();
+                bassFilterNode = audioContext.createBiquadFilter();
+                bassFilterNode.type = 'lowshelf';
+                bassFilterNode.frequency.value = 300;
+                midsFilterNode = audioContext.createBiquadFilter();
+                midsFilterNode.type = 'peaking';
+                midsFilterNode.frequency.value = 1000;
+                midsFilterNode.Q.value = 1.0;
+
+                reverbDryGain = audioContext.createGain();
+                reverbWetGain = audioContext.createGain();
+                convolverNode = audioContext.createConvolver();
+                createReverbImpulseResponse(); 
+                reverbWetGain.gain.value = 0;
+
+                delayNode = audioContext.createDelay(5.0);
+                delayFeedbackNode = audioContext.createGain();
+                delayWetGain = audioContext.createGain();
+                delayNode.delayTime.value = 0.6;
+                delayFeedbackNode.gain.value = 0.7;
+                delayWetGain.gain.value = 0;
+
+                mediaStreamDestination = audioContext.createMediaStreamDestination();
+                splitterNode = audioContext.createChannelSplitter(2);
+                analyserNodeL = audioContext.createAnalyser();
+                analyserNodeL.fftSize = 2048;
+                analyserNodeR = audioContext.createAnalyser();
+                analyserNodeR.fftSize = 2048;
+
+                masterGainNode.connect(bassFilterNode);
+                bassFilterNode.connect(midsFilterNode);
+                midsFilterNode.connect(reverbDryGain);
+                midsFilterNode.connect(convolverNode);
+                convolverNode.connect(reverbWetGain);
+                midsFilterNode.connect(delayNode);
+                delayNode.connect(delayFeedbackNode).connect(delayNode);
+                delayNode.connect(delayWetGain);
+
+                reverbDryGain.connect(audioContext.destination);
+                reverbWetGain.connect(audioContext.destination);
+                delayWetGain.connect(audioContext.destination);
+                
+                reverbDryGain.connect(mediaStreamDestination);
+                reverbWetGain.connect(mediaStreamDestination);
+                delayWetGain.connect(mediaStreamDestination);
+                
+                midsFilterNode.connect(splitterNode);
+                splitterNode.connect(analyserNodeL, 0);
+                splitterNode.connect(analyserNodeR, 1);
+                
+                timeDataL = new Uint8Array(analyserNodeL.frequencyBinCount);
+                timeDataR = new Uint8Array(analyserNodeR.frequencyBinCount);
+
+            } catch (e) {
+                console.error("Web Audio API is not supported", e);
+                showNotification("Browser doesn't support necessary audio features.");
+            }
+        }
+        
+        // --- Stop All Audio Sources ---
+        function stopChord() {
+            chordOscillators.forEach(item => {
+                try { item.osc.stop(0); } catch(e) {}
+                item.osc.disconnect();
+                item.gain.disconnect();
+                item.panner.disconnect();
+                item.merger.disconnect();
+                item.delay.disconnect();
+            });
+            chordOscillators = [];
+            if (activeChordButton) {
+                activeChordButton.classList.remove('active-wave');
+                activeChordButton = null;
+            }
+            isChordPlaying = false;
+        }
+
+        function stopAllAudio(exceptMic = false) {
+            stopChord();
+            if (chordRandomizerInterval) {
+                clearInterval(chordRandomizerInterval);
+                chordRandomizerInterval = null;
+                randomizeChordsToggle.checked = false;
+                toggleChordButtons(false);
+            }
+            if (isPlaying) {
+                if (fileSourceNode) try { fileSourceNode.stop(0); } catch(e){}
+                isPlaying = false;
+                playPauseBtn.innerHTML = playIcon;
+                cancelAnimationFrame(animationFrameId);
+            }
+            if (isSynthPlaying) {
+                stopSynth();
+                isSynthPlaying = false;
+                startStopSynthBtn.textContent = 'Start Synth';
+            }
+            if (isMicOn && !exceptMic) {
+                stopMic();
+                isMicOn = false;
+                micToggle.checked = false;
+            }
+        }
+
+        // --- File Player Logic ---
+        audioFileInput.addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            initAudioContext();
+            fileNameDisplay.textContent = file.name;
+            playPauseBtn.disabled = true;
+            seeker.disabled = true;
+            const arrayBuffer = await file.arrayBuffer();
+            stopAllAudio();
+            audioContext.decodeAudioData(arrayBuffer, (buffer) => {
+                audioBuffer = buffer;
+                seeker.value = 0;
+                seeker.max = buffer.duration;
+                durationDisplay.textContent = formatTime(buffer.duration);
+                currentTimeDisplay.textContent = formatTime(0);
+                playPauseBtn.disabled = false;
+                seeker.disabled = false;
+            }, (error) => showNotification("Error: Could not decode audio file."));
+        });
+
+        playPauseBtn.addEventListener('click', () => {
+            if (!audioContext || !audioBuffer) return;
+            if (audioContext.state === 'suspended') audioContext.resume();
+            const wasPlaying = isPlaying;
+            stopAllAudio();
+            if (!wasPlaying) {
+                isPlaying = true;
+                playAudioFile(startOffset);
+                playPauseBtn.innerHTML = pauseIcon;
+                startSeekerUpdates();
+            }
+        });
+
+        function playAudioFile(startFrom) {
+            if (fileSourceNode) fileSourceNode.disconnect();
+            fileSourceNode = audioContext.createBufferSource();
+            fileSourceNode.buffer = audioBuffer;
+            fileSourceNode.connect(masterGainNode);
+            playStartTime = audioContext.currentTime;
+            fileSourceNode.start(0, startFrom % audioBuffer.duration);
+            fileSourceNode.onended = () => {
+                if (isPlaying && (startOffset % audioBuffer.duration) >= audioBuffer.duration - 0.1) stopAllAudio();
+            };
+        }
+
+        // --- Synthesizer Logic ---
+        startStopSynthBtn.addEventListener('click', () => {
+            initAudioContext();
+            if (audioContext.state === 'suspended') audioContext.resume();
+            const wasSynthPlaying = isSynthPlaying;
+            stopAllAudio();
+            if (!wasSynthPlaying) {
+                isSynthPlaying = true;
+                startSynth();
+                startStopSynthBtn.textContent = 'Stop Synth';
+            }
+        });
+
+        function updateSynth() {
+            if (isSynthPlaying) {
+                stopSynth();
+                startSynth();
+            }
+        }
+        arpToggle.addEventListener('change', (e) => { isArpOn = e.target.checked; updateSynth(); });
+        osc2EnableToggle.addEventListener('change', (e) => {
+            osc2ControlsContainer.classList.toggle('hidden', !e.target.checked);
+            updateSynth();
+        });
+        osc2DetuneSlider.addEventListener('input', (e) => {
+            osc2DetuneValue.textContent = e.target.value;
+            if (oscillatorNode2) {
+                const detuneCents = parseFloat(e.target.value);
+                const freq2 = baseFrequency * Math.pow(2, detuneCents / 1200);
+                oscillatorNode2.frequency.setTargetAtTime(freq2, audioContext.currentTime, 0.01);
+            }
+        });
+        osc2MixSlider.addEventListener('input', (e) => {
+            const mixValue = parseFloat(e.target.value);
+            osc2MixValue.textContent = Math.round(mixValue * 100);
+            if (synthGainNode && synthGainNode2) {
+                synthGainNode.gain.setTargetAtTime(0.5 * (1 - mixValue), audioContext.currentTime, 0.01);
+                synthGainNode2.gain.setTargetAtTime(0.5 * mixValue, audioContext.currentTime, 0.01);
+            }
+        });
+
+        function startSynth() {
+            const isOsc2Enabled = osc2EnableToggle.checked;
+
+            // Master synth gain
+            synthMasterGainNode = audioContext.createGain();
+            stereoMergerNode = audioContext.createChannelMerger(2);
+            const stereoDelayNode = audioContext.createDelay();
+            stereoDelayNode.delayTime.setValueAtTime(0.01, audioContext.currentTime);
+            synthMasterGainNode.connect(stereoMergerNode, 0, 0);
+            synthMasterGainNode.connect(stereoDelayNode).connect(stereoMergerNode, 0, 1);
+            stereoMergerNode.connect(masterGainNode);
+
+            // OSC 1
+            const waveType1 = document.querySelector('.wave-btn.active-wave').dataset.wave;
+            const mixValue = parseFloat(osc2MixSlider.value);
+            oscillatorNode = audioContext.createOscillator();
+            synthGainNode = audioContext.createGain();
+            oscillatorNode.type = waveType1;
+            synthGainNode.gain.setValueAtTime(0.5 * (1 - mixValue), audioContext.currentTime);
+            oscillatorNode.connect(synthGainNode).connect(synthMasterGainNode);
+
+            // OSC 2
+            if (isOsc2Enabled) {
+                const waveType2 = document.querySelector('.wave-btn-osc2.active-wave-osc2').dataset.wave;
+                const detuneCents = parseFloat(osc2DetuneSlider.value);
+                const freq2 = baseFrequency * Math.pow(2, detuneCents / 1200);
+                oscillatorNode2 = audioContext.createOscillator();
+                synthGainNode2 = audioContext.createGain();
+                oscillatorNode2.type = waveType2;
+                oscillatorNode2.frequency.setValueAtTime(freq2, audioContext.currentTime);
+                synthGainNode2.gain.setValueAtTime(0.5 * mixValue, audioContext.currentTime);
+                oscillatorNode2.connect(synthGainNode2).connect(synthMasterGainNode);
+                oscillatorNode2.start();
+            }
+            
+            if (isArpOn) {
+                let arpIndex = 0;
+                const intervals = [1, 5/4, 3/2];
+                arpeggiatorInterval = setInterval(() => {
+                    const arpFreq = baseFrequency * intervals[arpIndex]; // Use global baseFrequency
+                    if (oscillatorNode) oscillatorNode.frequency.setValueAtTime(arpFreq, audioContext.currentTime);
+                    if (oscillatorNode2) {
+                        const detuneCents = parseFloat(osc2DetuneSlider.value);
+                        const freq2 = arpFreq * Math.pow(2, detuneCents / 1200);
+                        oscillatorNode2.frequency.setValueAtTime(freq2, audioContext.currentTime);
+                    }
+                    arpIndex = (arpIndex + 1) % intervals.length;
+                }, 150);
+            } else {
+                oscillatorNode.frequency.setValueAtTime(baseFrequency, audioContext.currentTime);
+            }
+            oscillatorNode.start();
+        }
+
+        function stopSynth() {
+            if (arpeggiatorInterval) clearInterval(arpeggiatorInterval);
+            arpeggiatorInterval = null;
+            if (oscillatorNode) {
+                try { oscillatorNode.stop(); } catch(e) {}
+                oscillatorNode.disconnect();
+                synthGainNode.disconnect();
+            }
+            if (oscillatorNode2) {
+                try { oscillatorNode2.stop(); } catch(e) {}
+                oscillatorNode2.disconnect();
+                synthGainNode2.disconnect();
+            }
+            if (synthMasterGainNode) synthMasterGainNode.disconnect();
+            if (stereoMergerNode) stereoMergerNode.disconnect();
+            oscillatorNode = oscillatorNode2 = synthGainNode = synthGainNode2 = synthMasterGainNode = null;
+        }
+
+        // --- Chord Logic ---
+        function getMajorChordFrequencies(rootNote) {
+            const rootFreq = noteFrequencies[rootNote];
+            return rootFreq ? [rootFreq, rootFreq * Math.pow(2, 4/12), rootFreq * Math.pow(2, 7/12)] : null;
+        }
+
+        function createChordOscillator(freq, type, gainValue, panValue) {
+            const osc = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            const stereoMerger = audioContext.createChannelMerger(2);
+            const stereoDelay = audioContext.createDelay();
+            const pannerNode = audioContext.createStereoPanner();
+            
+            stereoDelay.delayTime.setValueAtTime(0.01, audioContext.currentTime);
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(gainValue, audioContext.currentTime);
+            pannerNode.pan.setValueAtTime(panValue, audioContext.currentTime);
+
+            osc.connect(gainNode);
+            gainNode.connect(stereoMerger, 0, 0);
+            gainNode.connect(stereoDelay).connect(stereoMerger, 0, 1);
+            stereoMerger.connect(pannerNode);
+            pannerNode.connect(masterGainNode);
+            
+            osc.start();
+            return { osc, gain: gainNode, panner: pannerNode, merger: stereoMerger, delay: stereoDelay };
+        }
+
+        function _playChordInternal(chordName, buttonElement) {
+            initAudioContext();
+            if (audioContext.state === 'suspended') audioContext.resume();
+
+            const frequencies = getMajorChordFrequencies(chordName);
+            if (!frequencies) return;
+
+            isChordPlaying = true;
+            activeChordButton = buttonElement;
+            buttonElement.classList.add('active-wave'); 
+
+            const isOsc2Enabled = osc2EnableToggle.checked;
+            const waveType1 = document.querySelector('.wave-btn.active-wave').dataset.wave;
+            const waveType2 = document.querySelector('.wave-btn-osc2.active-wave-osc2').dataset.wave;
+            const mix = parseFloat(osc2MixSlider.value);
+            const detuneCents = parseFloat(osc2DetuneSlider.value);
+            const gainPerOsc = 0.2; // Adjusted gain to prevent clipping
+            
+            const panValues = [-0.8, 0, 0.8]; // L, C, R for Root, Third, Fifth
+
+            frequencies.forEach((freq, index) => {
+                const pan = panValues[index % 3];
+                const osc1 = createChordOscillator(freq, waveType1, gainPerOsc * (1 - mix), pan);
+                chordOscillators.push(osc1);
+
+                if (isOsc2Enabled) {
+                    const freq2 = freq * Math.pow(2, detuneCents / 1200);
+                    const osc2 = createChordOscillator(freq2, waveType2, gainPerOsc * mix, pan);
+                    chordOscillators.push(osc2);
+                }
+            });
+        }
+
+        function playChord(chordName, buttonElement) {
+            stopAllAudio();
+            _playChordInternal(chordName, buttonElement);
+        }
+
+        chordButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const chordName = button.dataset.chord;
+                if (isChordPlaying && activeChordButton === button) stopAllAudio();
+                else playChord(chordName, button);
+            });
+        });
+        
+        function toggleChordButtons(disabled) { chordButtons.forEach(btn => btn.disabled = disabled); }
+
+        randomizeChordsToggle.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                stopAllAudio();
+                toggleChordButtons(true);
+                function playNextInProgression() {
+                    stopChord(); // Stop previous chord before playing next
+
+                    if (progressionIndex >= currentProgression.length) {
+                        currentProgression = chordProgressions[Math.floor(Math.random() * chordProgressions.length)];
+                        progressionIndex = 0;
+                    }
+                    const chordName = currentProgression[progressionIndex++];
+                    const button = document.querySelector(`.chord-btn[data-chord="${chordName}"]`);
+                    if (button) _playChordInternal(chordName, button); // Use internal function
+                }
+                playNextInProgression();
+                chordRandomizerInterval = setInterval(playNextInProgression, 2000);
+            } else {
+                stopAllAudio();
+            }
+        });
+
+        // --- Display and Microphone Logic ---
+        toggleDisplayBtn.addEventListener('click', () => isLinearDisplay = !isLinearDisplay);
+
+        micToggle.addEventListener('change', (e) => {
+            initAudioContext();
+            if (audioContext.state === 'suspended') audioContext.resume();
+            if (e.target.checked) {
+                stopAllAudio(true);
+                isMicOn = true;
+                isLinearDisplay = true;
+                startMic();
+            } else stopAllAudio();
+        });
+
+        async function startMic() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                micStreamSource = audioContext.createMediaStreamSource(stream);
+                micGainNode = audioContext.createGain();
+                micGainNode.gain.setValueAtTime(micVolumeSlider.value, audioContext.currentTime);
+                micStreamSource.connect(micGainNode);
+                micGainNode.connect(splitterNode);
+                micGainNode.connect(mediaStreamDestination);
+                micVolumeSlider.disabled = false;
+            } catch (err) {
+                stopAllAudio();
+                showNotification('Microphone permission was denied.');
+            }
+        }
+
+        function stopMic() {
+            if (micStreamSource) {
+                micStreamSource.mediaStream.getTracks().forEach(track => track.stop());
+                micStreamSource.disconnect();
+                micGainNode.disconnect();
+                micStreamSource = micGainNode = null;
+            }
+            micVolumeSlider.disabled = true;
+        }
+
+        micVolumeSlider.addEventListener('input', (e) => {
+            micVolValueDisplay.textContent = Math.round(e.target.value * 100) + '%';
+            if (micGainNode) micGainNode.gain.setTargetAtTime(e.target.value, audioContext.currentTime, 0.01);
+        });
+        
+        // --- EQ Knob Logic ---
+        let activeKnob = null, startX = 0, startValue = 0;
+        function handleKnobMouseDown(e) {
+            e.preventDefault();
+            const knobContainer = e.currentTarget.parentElement;
+            activeKnob = { container: knobContainer, min: parseFloat(knobContainer.dataset.min), max: parseFloat(knobContainer.dataset.max), step: parseFloat(knobContainer.dataset.step), id: knobContainer.id };
+            startX = e.clientX;
+            startValue = parseFloat(knobContainer.dataset.value);
+            document.addEventListener('mousemove', handleKnobMouseMove);
+            document.addEventListener('mouseup', handleKnobMouseUp);
+        }
+        function handleKnobMouseMove(e) {
+            if (!activeKnob) return;
+            const deltaX = e.clientX - startX;
+            const sensitivity = (activeKnob.max - activeKnob.min) / 200;
+            let newValue = startValue + deltaX * sensitivity;
+            newValue = Math.max(activeKnob.min, Math.min(activeKnob.max, newValue));
+            if (activeKnob.step) newValue = Math.round(newValue / activeKnob.step) * activeKnob.step;
+            activeKnob.container.dataset.value = newValue;
+            updateKnob(activeKnob.id, newValue);
+        }
+        function handleKnobMouseUp() {
+            activeKnob = null;
+            document.removeEventListener('mousemove', handleKnobMouseMove);
+            document.removeEventListener('mouseup', handleKnobMouseUp);
+        }
+        
+        function handleKnobTouchStart(e) {
+            e.preventDefault();
+            const knobContainer = e.currentTarget.parentElement;
+            activeKnob = {
+                container: knobContainer,
+                min: parseFloat(knobContainer.dataset.min),
+                max: parseFloat(knobContainer.dataset.max),
+                step: parseFloat(knobContainer.dataset.step),
+                id: knobContainer.id
+            };
+            startX = e.touches[0].clientX;
+            startValue = parseFloat(knobContainer.dataset.value);
+            document.addEventListener('touchmove', handleKnobTouchMove, { passive: false });
+            document.addEventListener('touchend', handleKnobTouchEnd);
+        }
+
+        function handleKnobTouchMove(e) {
+            if (!activeKnob) return;
+            e.preventDefault();
+            const deltaX = e.touches[0].clientX - startX;
+            const sensitivity = (activeKnob.max - activeKnob.min) / 200;
+            let newValue = startValue + deltaX * sensitivity;
+            newValue = Math.max(activeKnob.min, Math.min(activeKnob.max, newValue));
+            if (activeKnob.step) {
+                newValue = Math.round(newValue / activeKnob.step) * activeKnob.step;
+            }
+            activeKnob.container.dataset.value = newValue;
+            updateKnob(activeKnob.id, newValue);
+        }
+
+        function handleKnobTouchEnd() {
+            activeKnob = null;
+            document.removeEventListener('touchmove', handleKnobTouchMove);
+            document.removeEventListener('touchend', handleKnobTouchEnd);
+        }
+
+        function updateKnob(knobId, value) {
+            let rotation = 0, displayText = '';
+            const dial = document.querySelector(`#${knobId} .knob-dial`);
+            const valueDisplay = document.querySelector(`#${knobId} .knob-value`);
+            switch (knobId) {
+                case 'gainKnobContainer':
+                    if (masterGainNode) masterGainNode.gain.setTargetAtTime(value, audioContext.currentTime, 0.01);
+                    displayText = `${Math.round(value * 100)}%`;
+                    rotation = ((value - 0) / 2) * 270 - 135;
+                    break;
+                case 'midsKnobContainer':
+                    if(midsFilterNode) midsFilterNode.gain.setTargetAtTime(value, audioContext.currentTime, 0.01);
+                    displayText = `${value.toFixed(1)} dB`;
+                    rotation = ((value + 24) / 48) * 270 - 135;
+                    break;
+                case 'bassKnobContainer':
+                    if(bassFilterNode) bassFilterNode.gain.setTargetAtTime(value, audioContext.currentTime, 0.01);
+                    displayText = `${value.toFixed(1)} dB`;
+                    rotation = ((value + 24) / 48) * 270 - 135;
+                    break;
+            }
+            if (dial) dial.style.transform = `rotate(${rotation}deg)`;
+            if (valueDisplay) valueDisplay.textContent = displayText;
+        }
+
+        // --- Reverb & Recording Logic ---
+        function createReverbImpulseResponse() {
+            if (!audioContext || !convolverNode) return;
+            const sampleRate = audioContext.sampleRate, duration = 4.0, decay = 6.0, length = sampleRate * duration;
+            const impulse = audioContext.createBuffer(2, length, sampleRate);
+            for (let ch = 0; ch < 2; ch++) {
+                const data = impulse.getChannelData(ch);
+                for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+            }
+            convolverNode.buffer = impulse;
+        }
+        function activateReverb(e) {
+            e.preventDefault();
+            if (!audioContext) initAudioContext();
+            reverbSquid.style.display = 'block';
+            reverbWetGain.gain.setTargetAtTime(2.5, audioContext.currentTime, 0.1);
+            reverbDryGain.gain.setTargetAtTime(0.3, audioContext.currentTime, 0.1);
+            if (delayWetGain) delayWetGain.gain.setTargetAtTime(0.7, audioContext.currentTime, 0.1);
+        }
+        function deactivateReverb() {
+            if (!audioContext) return;
+            reverbSquid.style.display = 'none';
+            reverbWetGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.1);
+            reverbDryGain.gain.setTargetAtTime(1.0, audioContext.currentTime, 0.1);
+            if (delayWetGain) delayWetGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.1);
+        }
+        recToggle.addEventListener('change', (e) => {
+            if (!audioContext) { showNotification("Please start an audio source first."); e.target.checked = false; return; }
+            if (e.target.checked) startRecording();
+            else stopRecording();
+        });
+
+        function startRecording() {
+            exportLinksContainer.classList.add('hidden');
+            recordedChunks = [];
+            const canvasStream = vectorscopeCanvas.captureStream(30);
+            const audioStream = mediaStreamDestination.stream;
+            const combinedStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioStream.getAudioTracks()]);
+            mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
+            
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+            
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                downloadVideoLink.href = URL.createObjectURL(blob);
+                downloadVideoLink.download = 'vectorweb-video.webm';
+                downloadAudioLink.style.display = 'none';
+            };
+
+            mediaRecorder.start();
+            showNotification("Recording started...");
+        }
+
+        function stopRecording() {
+            if(mediaRecorder?.state !== "inactive") mediaRecorder.stop();
+            exportLinksContainer.classList.remove('hidden');
+            downloadAudioLink.style.display = 'block'; // Or however you want to handle it
+            showNotification("Recording stopped. Export links available.", 6000);
+        }
+
+        // --- Other Controls & Updates ---
+        function updateFrequency(newValue) {
+            const freq = Math.max(parseInt(frequencySlider.min), Math.min(parseInt(frequencySlider.max), parseInt(newValue)));
+            baseFrequency = freq; // Update global variable
+            frequencySlider.value = freq;
+            freqValueDisplay.textContent = freq;
+
+            // If synth is playing WITHOUT arpeggiator, update frequency live
+            if (isSynthPlaying && !isArpOn) {
+                if (oscillatorNode) {
+                    oscillatorNode.frequency.setTargetAtTime(baseFrequency, audioContext.currentTime, 0.01);
+                }
+                if (oscillatorNode2) {
+                    const detuneCents = parseFloat(osc2DetuneSlider.value);
+                    const freq2 = baseFrequency * Math.pow(2, detuneCents / 1200);
+                    oscillatorNode2.frequency.setTargetAtTime(freq2, audioContext.currentTime, 0.01);
+                }
+            }
+        }
+        frequencySlider.addEventListener('input', (e) => updateFrequency(e.target.value));
+        freqDownBtn.addEventListener('click', () => updateFrequency(parseInt(frequencySlider.value) - 1));
+        freqUpBtn.addEventListener('click', () => updateFrequency(parseInt(frequencySlider.value) + 1));
+        
+        waveButtons.forEach(btn => btn.addEventListener('click', () => {
+            waveButtons.forEach(b => b.classList.remove('active-wave'));
+            btn.classList.add('active-wave');
+            if(oscillatorNode) oscillatorNode.type = btn.dataset.wave;
+        }));
+        waveButtonsOsc2.forEach(btn => btn.addEventListener('click', () => {
+            waveButtonsOsc2.forEach(b => b.classList.remove('active-wave-osc2'));
+            btn.classList.add('active-wave-osc2');
+            if(oscillatorNode2) oscillatorNode2.type = btn.dataset.wave;
+        }));
+
+        function startSeekerUpdates() {
+            function update() {
+                if(isPlaying) {
+                    const elapsedTime = startOffset + (audioContext.currentTime - playStartTime);
+                    seeker.value = elapsedTime % audioBuffer.duration;
+                    currentTimeDisplay.textContent = formatTime(seeker.value);
+                    animationFrameId = requestAnimationFrame(update);
+                }
+            }
+            update();
+        }
+        seeker.addEventListener('input', () => {
+             cancelAnimationFrame(animationFrameId);
+             currentTimeDisplay.textContent = formatTime(seeker.value);
+             startOffset = seeker.valueAsNumber;
+             if (isPlaying) {
+                 if (fileSourceNode) fileSourceNode.stop(0);
+                 playAudioFile(startOffset);
+                 startSeekerUpdates();
+             }
+        });
+
+        // --- Visualization ---
+        function resizeCanvas() {
+            const container = vectorscopeCanvas.parentElement;
+            vectorscopeCanvas.width = container.clientWidth;
+            vectorscopeCanvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        
+        function drawGrid() {
+            const width = vectorscopeCanvas.width, height = vectorscopeCanvas.height, gridSize = 40;
+            canvasCtx.strokeStyle = 'rgba(0, 255, 0, 0.15)';
+            canvasCtx.lineWidth = 1;
+            for (let x = 0; x <= width; x += gridSize) { canvasCtx.beginPath(); canvasCtx.moveTo(x, 0); canvasCtx.lineTo(x, height); canvasCtx.stroke(); }
+            for (let y = 0; y <= height; y += gridSize) { canvasCtx.beginPath(); canvasCtx.moveTo(0, y); canvasCtx.lineTo(width, y); canvasCtx.stroke(); }
+        }
+        
+        function drawVisuals() {
+            requestAnimationFrame(drawVisuals);
+            const width = vectorscopeCanvas.width, height = vectorscopeCanvas.height;
+            canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            canvasCtx.fillRect(0, 0, width, height);
+            drawGrid();
+            
+            if (!audioContext || (!isPlaying && !isSynthPlaying && !isMicOn && !isChordPlaying)) {
+                // Keep drawing the squid even if audio stops, if it's visible
+                if (reverbSquid.style.display === 'block') {
+                    const imgWidth = Math.min(width * 0.5, 256);
+                    const x = (width - imgWidth) / 2;
+                    const y = (height - imgWidth) / 2;
+                    canvasCtx.globalAlpha = 0.75; // Set opacity
+                    canvasCtx.drawImage(reverbSquid, x, y, imgWidth, imgWidth);
+                    canvasCtx.globalAlpha = 1.0; // Reset opacity
+                }
+                return;
+            }
+
+            canvasCtx.lineWidth = 2;
+            canvasCtx.strokeStyle = '#00ff00';
+            canvasCtx.beginPath();
+            analyserNodeL.getByteTimeDomainData(timeDataL);
+            if (isLinearDisplay) {
+                const sliceWidth = width * 1.0 / analyserNodeL.frequencyBinCount;
+                let x = 0;
+                for (let i = 0; i < analyserNodeL.frequencyBinCount; i++) {
+                    const y = (timeDataL[i] / 128.0) * height / 2;
+                    if (i === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
+                    x += sliceWidth;
+                }
+            } else {
+                analyserNodeR.getByteTimeDomainData(timeDataR);
+                for (let i = 0; i < analyserNodeL.frequencyBinCount; i++) {
+                    const x = (timeDataL[i] / 255.0) * width;
+                    const y = (1.0 - (timeDataR[i] / 255.0)) * height; 
+                    if (i === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
+                }
+            }
+            canvasCtx.stroke();
+
+            // Check if the reverb squid is supposed to be visible
+            if (reverbSquid.style.display === 'block') {
+                // Calculate size and position to center it, matching your CSS
+                const imgWidth = Math.min(width * 0.5, 256); // Matches width: 50% and max-width: 256px
+                const x = (width - imgWidth) / 2;
+                const y = (height - imgWidth) / 2;
+                
+                // Set opacity and draw the image onto the canvas
+                canvasCtx.globalAlpha = 0.75; // Matches opacity: 0.75
+                canvasCtx.drawImage(reverbSquid, x, y, imgWidth, imgWidth);
+                canvasCtx.globalAlpha = 1.0; // Reset opacity for other drawings
+            }
+        }
+
+        // --- Initial Load ---
+        window.onload = () => {
+            resizeCanvas();
+            drawVisuals();
+            
+            document.querySelectorAll('.knob-wrapper').forEach(wrapper => {
+                wrapper.addEventListener('mousedown', handleKnobMouseDown);
+                wrapper.addEventListener('touchstart', handleKnobTouchStart, { passive: false });
+            });
+            resetEqBtn.addEventListener('click', () => {
+                document.querySelectorAll('.knob-container').forEach(container => {
+                    const defaultValue = parseFloat(container.dataset.default);
+                    container.dataset.value = defaultValue;
+                    updateKnob(container.id, defaultValue);
+                });
+            });
+            squidIcon.addEventListener('mousedown', activateReverb);
+            squidIcon.addEventListener('mouseup', deactivateReverb);
+            squidIcon.addEventListener('mouseleave', deactivateReverb);
+            squidIcon.addEventListener('touchstart', activateReverb, { passive: false });
+            squidIcon.addEventListener('touchend', deactivateReverb);
+            squidIcon.addEventListener('touchcancel', deactivateReverb);
+
+            document.querySelectorAll('.knob-container').forEach(container => {
+                updateKnob(container.id, parseFloat(container.dataset.value));
+            });
+        };
+        function formatTime(seconds) {
+            const secs = parseFloat(seconds) || 0;
+            const minutes = Math.floor(secs / 60);
+            const remainingSeconds = Math.floor(secs % 60);
+            return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+        }
+    </script>
+
+</body>
+</html>
+

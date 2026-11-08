@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wave Nabber</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body {
+            background-color: black;
+            color: limegreen;
+            font-family: 'MedievalSharp', cursive;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: auto;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #3CB371;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s, visibility 0.5s;
+            font-size: 1.1em;
+            text-align: center;
+        }
+
+        .notification.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .header-container {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .header-icon {
+            width: 70px;
+            height: auto;
+            cursor: pointer;
+        }
+
+        h1 {
+            color: #ADFF2F;
+            font-size: 3em;
+            text-shadow: 2px 2px 5px #006400;
+            margin: 0;
+        }
+
+        #analyzer-container {
+            width: 90vw;
+            max-width: 600px;
+            height: 60vh;
+            max-height: 600px;
+            border: 5px solid #32CD32;
+            background-color: #0A0A0A;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px #008000;
+        }
+
+        #analyzer-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        #playbackVideo {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: black;
+            z-index: 10;
+            display: none;
+            object-fit: cover;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: nowrap;
+            justify-content: center;
+        }
+
+        button, select {
+            background-color: #228B22;
+            color: white;
+            border: 2px solid #006400;
+            padding: 10px 15px;
+            font-family: 'MedievalSharp', cursive;
+            font-size: 1em;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.3s ease, transform 0.2s ease, opacity 0.3s;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            white-space: nowrap;
+        }
+        
+        button:disabled, select:disabled {
+            background-color: #333;
+            color: #888;
+            border-color: #555;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        select {
+             -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+
+        button:not(:disabled):hover, select:not(:disabled):hover {
+            background-color: #3CB371;
+            transform: translateY(-2px);
+        }
+
+        button:not(:disabled):active {
+            transform: translateY(0);
+            box-shadow: 2px 5px rgba(0, 0, 0, 0.5);
+        }
+        
+        #saveSlotsContainer {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #0A0A0A;
+            border: 2px solid #32CD32;
+            border-radius: 10px;
+            box-shadow: 0 0 10px #008000 inset;
+            transition: opacity 0.3s ease;
+        }
+
+        #saveSlotsContainer.disabled {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .save-slot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .slot-button {
+            background-color: #228B22;
+            color: white;
+            border: 2px solid #006400;
+            font-family: 'MedievalSharp', cursive;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            font-size: 1.2em;
+            line-height: 26px;
+            text-align: center;
+            border-radius: 50%;
+        }
+
+        .slot-button:hover {
+            background-color: #3CB371;
+            transform: translateY(-1px);
+        }
+
+        .slot-button:active {
+            transform: translateY(0);
+        }
+
+        .record-btn {
+            background-color: #228B22;
+            border-color: #006400;
+        }
+
+        .record-btn:hover {
+            background-color: #3CB371;
+        }
+
+        .play-btn {
+            background-color: #228B22;
+            border-color: #006400;
+        }
+
+        .play-btn:hover {
+            background-color: #3CB371;
+        }
+
+        .stop-btn {
+            background-color: #228B22;
+            border-color: #006400;
+        }
+
+        .stop-btn:hover {
+            background-color: #3CB371;
+        }
+
+        .download-button {
+            background-color: #2E8B57; /* SeaGreen */
+            color: white;
+            border: 1px solid #006400;
+            font-family: 'MedievalSharp', cursive;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            font-size: 1.1em;
+            line-height: 22px;
+            text-align: center;
+            border-radius: 4px;
+        }
+
+        .download-button:hover {
+            background-color: #3CB371;
+        }
+
+        .effect-button {
+            background-color: #444;
+            color: #ccc;
+            border: 1px solid #222;
+            font-family: 'MedievalSharp', cursive;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            font-size: 1.1em;
+            line-height: 22px;
+            text-align: center;
+            border-radius: 4px;
+        }
+
+        .effect-button.active {
+            background-color: #1E90FF;
+            color: white;
+            box-shadow: 0 0 10px #4682B4;
+            border-color: #4682B4;
+        }
+
+        .led {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            border: 2px solid #006400;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+
+        .led.off { background-color: #111; }
+        .led.saved { background-color: #228B22; box-shadow: 0 0 10px #32CD32; }
+        .led.playing { background-color: #1E90FF; box-shadow: 0 0 15px #4682B4; }
+        .led.recording {
+            background-color: #FF0000;
+            box-shadow: 0 0 15px #FF4500;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0.5; }
+        }
+
+        kbd {
+            background-color: #333;
+            border: 1px solid #555;
+            border-radius: 3px;
+            padding: 2px 4px;
+        }
+
+        .links {
+            margin-top: 20px;
+            display: flex;
+            gap: 20px;
+        }
+
+        a {
+            color: limegreen;
+            text-decoration: none;
+            font-size: 1.2rem;
+            transition: color 0.3s ease;
+        }
+
+        a:hover {
+            color: #ADFF2F;
+        }
+    </style>
+</head>
+<body>
+    <div class="absolute top-4 right-4 flex z-50">
+              <a href="https://www.nekron.org/"><img src="https://www.nekron.org/hawk.png" alt="Hawk Icon" style="height: 30px; display: block;"></a>
+        <a href="https://www.nekron.org/vec">
+            <img src="https://www.nekron.org/squid.gif" alt="Squid Icon" style="height: 30px;">
+        </a>
+        <a href="https://www.nekron.org/wavenabber">
+            <img src="https://www.nekron.org/ggsm.png" alt="GGSM Icon" style="height: 30px;">
+        </a>
+        <a href="https://www.nekron.org/radar.html">
+            <img src="https://www.nekron.org/moths.png" alt="Moths Icon" style="height: 30px;">
+        </a>
+    </div>
+    <div id="notification" class="notification"></div>
+<br>
+    <div class="header-container">
+        <img src="https://www.nekron.org/ggsm.png" alt="ghost icon" class="header-icon">
+        <h1 style="font-size:40px;">Wave Nabber</h1>
+    </div>
+    <div id="analyzer-container">
+        <canvas id="analyzer-canvas"></canvas>
+        <video id="playbackVideo" playsinline></video>
+    </div>
+    <div class="controls">
+        <button id="startButton">Start Analyzer</button>
+        <select id="vizSelector" disabled>
+            <option value="lines">Wavy Lines</option>
+            <option value="linearWave">Linear Wave</option>
+            <option value="honeycomb">Honeycomb</option>
+            <option value="cube">3D Cube</option>
+            <option value="splash">Splash</option>
+            <option value="moths">Orb</option>
+        </select>
+        <button id="resetButton" disabled>Reset</button>
+    </div>
+    
+    <div id="saveSlotsContainer"></div>
+    <p style="margin-top: 15px; font-size: 0.9em;">Hint: Use '●' to record, '▶' to play, '■' to stop, '&#x21E9;' to download, and '🝀' to toggle effects.</p>
+
+
+<script>
+        const startButton = document.getElementById('startButton');
+        const vizSelector = document.getElementById('vizSelector');
+        const resetButton = document.getElementById('resetButton');
+        const canvas = document.getElementById('analyzer-canvas');
+        const analyzerContainer = document.getElementById('analyzer-container');
+        const ctx = canvas.getContext('2d');
+        const notification = document.getElementById('notification');
+        
+        const ghostIcon = document.querySelector('.header-icon');
+        const ghostSound = new Audio('https://www.nekron.org/pacsound.mp3');
+
+        const saveSlotsContainer = document.getElementById('saveSlotsContainer');
+        const playbackVideo = document.getElementById('playbackVideo');
+        let saveSlots = new Array(6).fill(null);
+        let slotEffects = new Array(6).fill(false); // Tracks if effects are on for a slot
+        let activeRecordingSlot = -1;
+        let lastRecordedSlot = -1; // Track the most recently recorded slot
+        let currentlyPlayingSlot = -1; // Track which slot is currently playing
+        let audioContext;
+        let analyser;
+        let microphone;
+        let sourceNode; // Made global to be accessible for effects
+        let animationFrameId;
+        let mediaRecorder;
+        let effectChainNodes = {}; // To hold references for disconnecting
+        let isRecording = false;
+        let compositeCanvas, compositeCtx;
+        let currentVisualization = 'lines';
+        let scene, camera, renderer, cubeGroup;
+        let moths = [];
+        const MAX_MOTHS = 150;
+        let lightSource = {};
+
+        function enableControls() {
+            startButton.textContent = "Stop Analyzer";
+            vizSelector.disabled = false;
+            resetButton.disabled = false;
+            saveSlotsContainer.classList.remove('disabled');
+        }
+
+        function disableControls() {
+            startButton.textContent = "Start Analyzer";
+            vizSelector.disabled = true;
+            resetButton.disabled = true;
+            saveSlotsContainer.classList.add('disabled');
+        }
+        
+        ghostIcon.addEventListener('click', () => {
+            ghostSound.play().catch(error => console.error("Audio playback failed:", error));
+        });
+        
+        function showNotification(message) {
+            notification.textContent = message;
+            notification.classList.add('show');
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        function resizeCanvas() {
+            canvas.width = analyzerContainer.clientWidth;
+            canvas.height = analyzerContainer.clientHeight;
+            if (compositeCanvas) {
+                compositeCanvas.width = canvas.width;
+                compositeCanvas.height = canvas.height;
+            }
+            if (renderer) {
+                camera.aspect = canvas.width / canvas.height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(canvas.width, canvas.height);
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+        
+        async function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+
+                microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 2048;
+                analyser.smoothingTimeConstant = 0.8;
+                analyser.minDecibels = -100;
+                analyser.maxDecibels = -10;
+                
+                sourceNode = audioContext.createMediaStreamSource(microphone);
+                sourceNode.connect(analyser); // Connect to analyser for visuals
+                
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                
+                switchVisualization(currentVisualization);
+                draw(analyser, bufferLength, dataArray);
+                enableControls();
+
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                showNotification('Microphone access denied. Please grant permission.');
+                stopAudio();
+            }
+        }
+
+        function stopAudio() {
+            if (microphone) {
+                microphone.getTracks().forEach(track => track.stop());
+                microphone = null;
+            }
+            if (audioContext) {
+                audioContext.close().then(() => audioContext = null);
+            }
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (renderer) {
+                if (renderer.domElement.parentNode === analyzerContainer) {
+                    analyzerContainer.removeChild(renderer.domElement);
+                }
+                renderer.dispose();
+                renderer = null; scene = null; camera = null; cubeGroup = null;
+            }
+            canvas.style.display = 'block';
+            
+            disableControls();
+        }
+
+        let frameCount = 0;
+        function draw(analyser, bufferLength, dataArray) {
+            animationFrameId = requestAnimationFrame(() => draw(analyser, bufferLength, dataArray));
+            if (currentVisualization === 'linearWave') {
+                analyser.getByteTimeDomainData(dataArray);
+            } else {
+                analyser.getByteFrequencyData(dataArray);
+            }
+            
+            if(currentVisualization !== 'cube' && currentVisualization !== 'moths') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            const vizMap = {
+                lines: drawLines,
+                honeycomb: drawHoneycomb,
+                linearWave: drawLinearWave,
+                cube: draw3DCube,
+                splash: drawSplash,
+                moths: drawMoths
+            };
+            if(vizMap[currentVisualization]) {
+                vizMap[currentVisualization](bufferLength, dataArray);
+            }
+
+            if (isRecording && compositeCtx) {
+                compositeCtx.clearRect(0, 0, compositeCanvas.width, compositeCanvas.height);
+                if (currentVisualization === 'cube' && renderer) {
+                    compositeCtx.drawImage(renderer.domElement, 0, 0, compositeCanvas.width, compositeCanvas.height);
+                } else {
+                    compositeCtx.drawImage(canvas, 0, 0, compositeCanvas.width, compositeCanvas.height);
+                }
+            }
+        }
+        
+        class Moth { constructor(x, y) { this.x = x; this.y = y; this.vx = (Math.random() - 0.5) * 2; this.vy = (Math.random() - 0.5) * 2; this.life = 150 + Math.random() * 100; this.maxLife = this.life; this.angle = Math.random() * Math.PI * 2; this.flapSpeed = Math.random() * 0.2 + 0.1; this.size = 5 + Math.random() * 5; } update(dataArray, bufferLength) { this.x += this.vx; this.y += this.vy; this.life--; this.angle += this.flapSpeed; const freqIndex = Math.floor((this.y / canvas.height) * bufferLength * 0.8); const intensity = dataArray[freqIndex] / 255.0; this.vx += (Math.random() - 0.5) * intensity * 0.6; this.vy += (Math.random() - 0.5) * intensity * 0.6; const dx = lightSource.x - this.x; const dy = lightSource.y - this.y; const dist = Math.sqrt(dx * dx + dy * dy); if (dist > 1) { this.vx += (dx / dist) * 0.05; this.vy += (dy / dist) * 0.05; } const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy); if (speed > 3) { this.vx *= 3 / speed; this.vy *= 3 / speed; } if (this.x < 0 || this.x > canvas.width) this.vx *= -1; if (this.y < 0 || this.y > canvas.height) this.vy *= -1; } draw(ctx) { const wingSpan = this.size + Math.sin(this.angle) * this.size * 0.8; ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(Math.atan2(this.vy, this.vx) + Math.PI / 2); const opacity = this.life / this.maxLife; ctx.strokeStyle = `rgba(173, 255, 47, ${opacity})`; ctx.lineWidth = 1.5; ctx.shadowBlur = 5; ctx.shadowColor = `rgba(173, 255, 47, ${opacity * 0.5})`; ctx.beginPath(); ctx.moveTo(-wingSpan / 2, -wingSpan / 1.5); ctx.lineTo(0, 0); ctx.lineTo(-wingSpan / 2, wingSpan / 1.5); ctx.moveTo(wingSpan / 2, -wingSpan / 1.5); ctx.lineTo(0, 0); ctx.lineTo(wingSpan / 2, wingSpan / 1.5); ctx.stroke(); ctx.restore(); } } function drawMoths(bufferLength, dataArray) { ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'; ctx.fillRect(0, 0, canvas.width, canvas.height); lightSource.x = canvas.width / 2; lightSource.y = canvas.height / 2; const bassIntensity = (dataArray[5] + dataArray[10] + dataArray[15]) / 3 / 255.0; const lightRadius = 40 + bassIntensity * 100; const gradient = ctx.createRadialGradient(lightSource.x, lightSource.y, 0, lightSource.x, lightSource.y, lightRadius); gradient.addColorStop(0, `rgba(200, 255, 150, ${0.4 + bassIntensity * 0.5})`); gradient.addColorStop(0.5, `rgba(173, 255, 47, ${0.1 + bassIntensity * 0.3})`); gradient.addColorStop(1, 'rgba(173, 255, 47, 0)'); ctx.fillStyle = gradient; ctx.beginPath(); ctx.arc(lightSource.x, lightSource.y, lightRadius, 0, Math.PI * 2); ctx.fill(); let sum = 0; for(let i = 0; i < bufferLength; i++) { sum += dataArray[i]; } const average = sum / bufferLength; if (average > 30 && moths.length < MAX_MOTHS && Math.random() > 0.4) { const angle = Math.random() * Math.PI * 2; const radius = 50 + Math.random() * 50; const spawnX = lightSource.x + Math.cos(angle) * radius; const spawnY = lightSource.y + Math.sin(angle) * radius; moths.push(new Moth(spawnX, spawnY)); } for (let i = moths.length - 1; i >= 0; i--) { const moth = moths[i]; moth.update(dataArray, bufferLength); moth.draw(ctx); if (moth.life <= 0) { moths.splice(i, 1); } } ctx.shadowBlur = 0; } function drawLines(bufferLength, dataArray) { frameCount++; const numLines = 80; const lineSpacing = canvas.width / numLines; for (let i = 0; i < numLines; i++) { const startIndex = Math.floor((i / numLines) * bufferLength); const endIndex = Math.min(startIndex + Math.floor(bufferLength / (numLines * 2)), bufferLength); let sum = 0; for (let j = startIndex; j < endIndex; j++) { sum += dataArray[j]; } let avgValue = (endIndex > startIndex) ? sum / (endIndex - startIndex) : 0; let mappedValue = Math.pow(avgValue / 255, 0.3) * 255; const baseActivity = 20; mappedValue = Math.max(mappedValue, baseActivity); const x = i * lineSpacing; ctx.beginPath(); const intensityFactor = mappedValue / 255; ctx.strokeStyle = `rgba(0, 255, 0, ${0.2 + intensityFactor * 0.7})`; ctx.lineWidth = 1 + intensityFactor * 2; ctx.shadowBlur = 5 * intensityFactor; ctx.shadowColor = 'rgba(0, 255, 0, 0.8)'; const waveAmplitude = 5 + intensityFactor * 20; const waveFrequency = 0.03; const waveOffset = frameCount * 0.03 + i * 0.1; ctx.moveTo(x + lineSpacing / 2 + Math.sin(waveOffset) * waveAmplitude * 0.5, 0); for (let y = 0; y <= canvas.height; y += 10) { const offsetX = Math.sin((y * waveFrequency) + waveOffset + i * 0.05) * waveAmplitude; ctx.lineTo(x + lineSpacing / 2 + offsetX, y); } ctx.stroke(); ctx.shadowBlur = 0; if (Math.random() < (0.02 + intensityFactor * 0.1)) { const dotRadius = 3 + intensityFactor * 8; const dotX = x + (Math.random() - 0.5) * lineSpacing * 1.5; const dotY = Math.random() * canvas.height; ctx.beginPath(); ctx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2); ctx.fillStyle = `rgba(173, 255, 47, ${0.5 + intensityFactor * 0.5})`; ctx.shadowBlur = dotRadius * 3; ctx.shadowColor = 'rgba(0, 255, 47, 0.8)'; ctx.fill(); ctx.shadowBlur = 0; } } } function drawHoneycomb(bufferLength, dataArray) { const hexRadius = 25; const hexWidth = Math.sqrt(3) * hexRadius; const hexHeight = 2 * hexRadius; const horizSpacing = hexWidth; const vertSpacing = hexHeight * 3 / 4; const numCols = Math.ceil(canvas.width / horizSpacing) + 1; for (let row = 0; (row * vertSpacing) < canvas.height + hexHeight; row++) { for (let col = 0; (col * horizSpacing) < canvas.width + hexWidth; col++) { const xOffset = (row % 2 === 1) ? hexWidth / 2 : 0; const centerX = col * horizSpacing + xOffset; const centerY = row * vertSpacing; const freqBinCount = Math.floor(bufferLength * 0.5); const freqIndex = Math.floor((col / numCols) * freqBinCount); const intensity = dataArray[freqIndex] / 255.0; const glow = Math.pow(intensity, 2); ctx.beginPath(); for (let i = 0; i < 6; i++) { const angle = (Math.PI / 3) * i; const hx = centerX + hexRadius * Math.cos(angle); const hy = centerY + hexRadius * Math.sin(angle); if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy); } ctx.closePath(); ctx.strokeStyle = `rgba(0, 255, 0, ${0.1 + intensity * 0.8})`; ctx.lineWidth = 1 + intensity * 2; ctx.shadowBlur = 15 * glow; ctx.shadowColor = 'rgba(50, 255, 50, 0.8)'; ctx.stroke(); if (intensity > 0.15) { ctx.fillStyle = `rgba(173, 255, 47, ${glow * 0.15})`; ctx.fill(); } } } } function drawLinearWave(bufferLength, dataArray) { ctx.lineWidth = 2; ctx.strokeStyle = '#ADFF2F'; ctx.shadowBlur = 5; ctx.shadowColor = '#32CD32'; ctx.beginPath(); const sliceWidth = canvas.width * 1.0 / bufferLength; let x = 0; for (let i = 0; i < bufferLength; i++) { const v = dataArray[i] / 128.0; const y = v * canvas.height / 2; if (i === 0) { ctx.moveTo(x, y); } else { ctx.lineTo(x, y); } x += sliceWidth; } ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke(); ctx.shadowBlur = 0; } function init3D() { scene = new THREE.Scene(); camera = new THREE.PerspectiveCamera(75, analyzerContainer.clientWidth / analyzerContainer.clientHeight, 0.1, 1000); renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); renderer.setSize(analyzerContainer.clientWidth, analyzerContainer.clientHeight); analyzerContainer.appendChild(renderer.domElement); const ambientLight = new THREE.AmbientLight(0x404040); scene.add(ambientLight); const directionalLight = new THREE.DirectionalLight(0x00ff00, 0.8); directionalLight.position.set(0, 1, 1); scene.add(directionalLight); cubeGroup = new THREE.Group(); const gridSize = 8; const cubeSize = 0.8; const spacing = 1; for(let i = 0; i < gridSize; i++) { for(let j = 0; j < gridSize; j++) { const geometry = new THREE.BoxGeometry(cubeSize, 1, cubeSize); const material = new THREE.MeshPhongMaterial({ color: 0x00ff00, specular: 0xADFF2F, shininess: 50 }); const cube = new THREE.Mesh(geometry, material); cube.position.x = (i - gridSize / 2 + 0.5) * spacing; cube.position.z = (j - gridSize / 2 + 0.5) * spacing; cubeGroup.add(cube); } } scene.add(cubeGroup); camera.position.z = 8; camera.position.y = 5; camera.lookAt(0, 0, 0); } function draw3DCube(bufferLength, dataArray) { if (!renderer) return; const gridSize = 8; for (let i = 0; i < gridSize * gridSize; i++) { const cube = cubeGroup.children[i]; if (cube) { const dataIndex = Math.floor(i * (bufferLength / (gridSize * gridSize))); const intensity = dataArray[dataIndex] / 255.0; const scaleY = 0.1 + intensity * 5; cube.scale.y = scaleY; cube.position.y = scaleY / 2; const green = 0.2 + intensity * 0.8; cube.material.color.setRGB(0, green, 0); cube.material.emissive.setRGB(0, intensity * 0.4, 0); } } const time = Date.now() * 0.0002; camera.position.x = Math.sin(time) * 8; camera.position.z = Math.cos(time) * 8; camera.lookAt(0, 0, 0); renderer.render(scene, camera); } function drawSplash(bufferLength, dataArray) { ctx.fillStyle = 'rgba(0, 0, 0, 0.1)'; ctx.fillRect(0, 0, canvas.width, canvas.height); const centerX = canvas.width / 2; const centerY = canvas.height / 2; const bars = 128; for (let i = 0; i < bars; i++) { const index = Math.floor((i / bars) * (bufferLength * 0.8)); const value = dataArray[index]; const percent = value / 255; const length = 5 + percent * (canvas.height * 0.9); const angle = (i / bars) * Math.PI * 2 - Math.PI / 2; const startX = centerX; const startY = centerY; const endX = centerX + Math.cos(angle) * length; const endY = centerY + Math.sin(angle) * length; ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(endX, endY); ctx.strokeStyle = `rgba(0, 255, 0, ${0.3 + percent * 0.7})`; ctx.lineWidth = 2 + percent * 3; ctx.shadowBlur = 10; ctx.shadowColor = `rgba(50, 255, 50, ${percent * 0.8})`; ctx.stroke(); } ctx.shadowBlur = 0; }
+
+        function switchVisualization(viz) {
+             if (viz === 'cube') {
+                 canvas.style.display = 'none';
+                 if (!renderer) init3D();
+                 if(renderer) renderer.domElement.style.display = 'block';
+             } else {
+                 canvas.style.display = 'block';
+                 if (renderer) renderer.domElement.style.display = 'none';
+             }
+        }
+        
+        function initSaveSlots() {
+            saveSlotsContainer.innerHTML = '';
+            for (let i = 0; i < 6; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'save-slot';
+                slot.innerHTML = `
+                    <div class="led off" id="led-${i}"></div>
+                    <button class="slot-button record-btn" id="record-btn-${i}" title="Record">●</button>
+                    <button class="slot-button play-btn" id="play-btn-${i}" title="Play">▶</button>
+                    <button class="slot-button stop-btn" id="stop-btn-${i}" title="Stop">■</button>
+                    <button class="download-button" id="download-btn-${i}" title="Download">&#x21E9;</button>
+                    <button class="effect-button" id="effect-btn-${i}" title="Toggle Effects">🝀</button>
+                `;
+                
+                slot.querySelector(`#record-btn-${i}`).addEventListener('click', async (e) => { 
+                    e.preventDefault(); 
+                    await handleRecordSlot(i); 
+                });
+                slot.querySelector(`#play-btn-${i}`).addEventListener('click', (e) => { 
+                    e.preventDefault(); 
+                    playSlot(i); 
+                });
+                slot.querySelector(`#stop-btn-${i}`).addEventListener('click', (e) => { 
+                    e.preventDefault(); 
+                    handleStopSlot(i); 
+                });
+                slot.querySelector(`#download-btn-${i}`).addEventListener('click', (e) => { 
+                    e.preventDefault(); 
+                    downloadSlot(i); 
+                });
+                slot.querySelector(`#effect-btn-${i}`).addEventListener('click', (e) => {
+                    e.preventDefault();
+                    toggleSlotEffect(i);
+                });
+                saveSlotsContainer.appendChild(slot);
+            }
+        }
+
+        function updateLed(slotIndex, state) {
+            const led = document.getElementById(`led-${slotIndex}`);
+            if (led) led.className = `led ${state}`;
+        }
+        
+        function toggleSlotEffect(slotIndex) {
+            if (isRecording) {
+                showNotification("Cannot change effects while recording.");
+                return;
+            }
+            slotEffects[slotIndex] = !slotEffects[slotIndex];
+            const btn = document.getElementById(`effect-btn-${slotIndex}`);
+            btn.classList.toggle('active', slotEffects[slotIndex]);
+            showNotification(`Effects for slot ${slotIndex + 1} turned ${slotEffects[slotIndex] ? 'ON' : 'OFF'}.`);
+        }
+        
+        async function handleRecordSlot(slotIndex) {
+            if (!microphone || !audioContext) {
+                showNotification('Please start the analyzer first to enable recording.');
+                return;
+            }
+            
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+
+            if (isRecording) {
+                showNotification('Already recording on another slot. Stop it first.');
+                return;
+            }
+
+            activeRecordingSlot = slotIndex;
+            startRecording();
+        }
+
+        function handleStopSlot(slotIndex) {
+            // Stop recording if this slot is currently recording
+            if (isRecording && activeRecordingSlot === slotIndex) {
+                stopRecording();
+                showNotification(`Recording stopped on slot ${slotIndex + 1}.`);
+                return;
+            }
+            
+            // Stop playback if this slot is currently playing
+            if (currentlyPlayingSlot === slotIndex && playbackVideo && !playbackVideo.paused) {
+                playbackVideo.pause();
+                playbackVideo.currentTime = 0;
+                playbackVideo.style.display = 'none';
+                switchVisualization(currentVisualization);
+                updateLed(slotIndex, 'saved');
+                currentlyPlayingSlot = -1;
+                showNotification(`Playback stopped on slot ${slotIndex + 1}.`);
+                return;
+            }
+
+            showNotification(`Slot ${slotIndex + 1} is not currently recording or playing.`);
+        }
+
+
+        function startRecording() {
+            try {
+                if (!compositeCanvas) {
+                    compositeCanvas = document.createElement('canvas');
+                    compositeCanvas.width = analyzerContainer.clientWidth;
+                    compositeCanvas.height = analyzerContainer.clientHeight;
+                    compositeCtx = compositeCanvas.getContext('2d');
+                }
+                
+                if (typeof compositeCanvas.captureStream !== 'function') {
+                    showNotification('Your browser does not support canvas recording.');
+                    return;
+                }
+
+                const canvasStream = compositeCanvas.captureStream(30);
+                const videoTrack = canvasStream.getVideoTracks()[0];
+                const audioTracks = microphone.getAudioTracks();
+                let finalStream;
+
+                if (slotEffects[activeRecordingSlot] && audioTracks.length > 0 && sourceNode) {
+                    const destination = audioContext.createMediaStreamDestination();
+                    
+                    // --- Create Dark Robot Effect Chain ---
+                    const wetGain = audioContext.createGain();
+                    wetGain.gain.setValueAtTime(1.0, audioContext.currentTime);
+
+                    const dryGain = audioContext.createGain();
+                    dryGain.gain.setValueAtTime(0.1, audioContext.currentTime);
+
+                    const lowpassFilter = audioContext.createBiquadFilter();
+                    lowpassFilter.type = 'lowpass';
+                    lowpassFilter.frequency.setValueAtTime(400, audioContext.currentTime);
+                    lowpassFilter.Q.setValueAtTime(2, audioContext.currentTime);
+
+                    const ringModulator = audioContext.createGain();
+                    const oscillator = audioContext.createOscillator();
+                    oscillator.type = 'square';
+                    oscillator.frequency.setValueAtTime(50, audioContext.currentTime); // Creates the robotic tone
+                    oscillator.start();
+                    oscillator.connect(ringModulator.gain);
+                    
+                    // --- Connect Nodes ---
+                    // Wet path (robot): Source -> Filter -> Ring Modulator -> Wet Gain -> Destination
+                    sourceNode.connect(lowpassFilter).connect(ringModulator).connect(wetGain).connect(destination);
+                    // Dry path (original): Source -> Dry Gain -> Destination
+                    sourceNode.connect(dryGain).connect(destination);
+
+                    effectChainNodes = { lowpassFilter, ringModulator, oscillator, wetGain, dryGain };
+                    
+                    finalStream = new MediaStream([videoTrack, destination.stream.getAudioTracks()[0]]);
+                    showNotification(`Recording for slot ${activeRecordingSlot + 1} with effects...`);
+                } else {
+                    const clonedAudioTrack = audioTracks.length > 0 ? audioTracks[0].clone() : null;
+                    if (clonedAudioTrack) canvasStream.addTrack(clonedAudioTrack);
+                    finalStream = canvasStream;
+                    showNotification(`Recording for slot ${activeRecordingSlot + 1}...`);
+                }
+                
+                const recordedChunks = [];
+                const mimeTypes = ['video/webm; codecs="vp8, opus"', 'video/webm'];
+                const supportedMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
+
+                if (!supportedMimeType) {
+                    showNotification('No supported video format found for recording.');
+                    return;
+                }
+
+                mediaRecorder = new MediaRecorder(finalStream, { mimeType: supportedMimeType });
+                
+                mediaRecorder.ondataavailable = event => {
+                    if (event.data.size > 0) recordedChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = () => {
+                    if (activeRecordingSlot === -1) return;
+                    
+                    // Disconnect effect nodes if they were used
+                    if (effectChainNodes.oscillator) {
+                        effectChainNodes.oscillator.stop();
+                        sourceNode.disconnect(effectChainNodes.lowpassFilter);
+                        sourceNode.disconnect(effectChainNodes.dryGain);
+                        effectChainNodes = {};
+                    }
+
+                    const blob = new Blob(recordedChunks, { type: supportedMimeType });
+                    saveSlots[activeRecordingSlot] = blob;
+                    lastRecordedSlot = activeRecordingSlot; // Track the last recorded slot
+                    updateLed(activeRecordingSlot, 'saved');
+                    showNotification(`Recording saved to slot ${activeRecordingSlot + 1}.`);
+
+                    finalStream.getTracks().forEach(track => track.stop());
+                    isRecording = false;
+                    activeRecordingSlot = -1;
+                };
+
+                mediaRecorder.onerror = (event) => {
+                    console.error('MediaRecorder error:', event.error);
+                    showNotification(`Recording failed: ${event.error.name}`);
+                    isRecording = false;
+                    updateLed(activeRecordingSlot, 'off');
+                    activeRecordingSlot = -1;
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                updateLed(activeRecordingSlot, 'recording');
+
+            } catch (err) {
+                console.error("Error starting recording:", err);
+                showNotification('An unexpected error occurred during recording setup.');
+                isRecording = false;
+                if (activeRecordingSlot !== -1) updateLed(activeRecordingSlot, 'off');
+                activeRecordingSlot = -1;
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+        }
+        
+        function playSlot(slotIndex) {
+            if (isRecording) { showNotification('Cannot play while recording.'); return; }
+            const blob = saveSlots[slotIndex];
+            if (!blob) { showNotification(`Slot ${slotIndex + 1} is empty.`); return; }
+
+            canvas.style.display = 'none';
+            if (renderer) renderer.domElement.style.display = 'none';
+            playbackVideo.style.display = 'block';
+
+            const url = URL.createObjectURL(blob);
+            playbackVideo.src = url;
+            playbackVideo.play();
+            currentlyPlayingSlot = slotIndex; // Track which slot is playing
+            updateLed(slotIndex, 'playing');
+            showNotification(`Playing from slot ${slotIndex + 1}...`);
+            
+            playbackVideo.onended = () => {
+                playbackVideo.style.display = 'none';
+                switchVisualization(currentVisualization);
+                URL.revokeObjectURL(url);
+                updateLed(slotIndex, 'saved');
+                currentlyPlayingSlot = -1; // Reset after playback ends
+            };
+        }
+
+        function downloadSlot(slotIndex) {
+            const blob = saveSlots[slotIndex];
+            if (!blob) { showNotification(`Slot ${slotIndex + 1} is empty, cannot download.`); return; }
+            
+            const fileExtension = blob.type.includes('mp4') ? 'mp4' : 'webm';
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            document.body.appendChild(a);
+            a.style = 'display: none';
+            a.href = url;
+            a.download = `wavenabber-slot-${slotIndex + 1}.${fileExtension}`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            showNotification(`Downloading from slot ${slotIndex + 1}...`);
+        }
+        
+        function resetApplication() {
+            stopAudio();
+            if (isRecording) stopRecording();
+
+            if (playbackVideo && !playbackVideo.paused) {
+                playbackVideo.pause();
+                playbackVideo.src = '';
+                playbackVideo.style.display = 'none';
+            }
+            
+            saveSlots = new Array(6).fill(null);
+            slotEffects = new Array(6).fill(false);
+            lastRecordedSlot = -1; // Reset last recorded slot
+            initSaveSlots();
+            
+            vizSelector.selectedIndex = 0;
+            currentVisualization = vizSelector.value;
+            switchVisualization(currentVisualization);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            showNotification("System Reset");
+        }
+
+        // --- Event Listeners ---
+        startButton.addEventListener('click', () => {
+            if (!microphone) initAudio();
+            else stopAudio();
+        });
+
+        vizSelector.addEventListener('change', (e) => {
+            currentVisualization = e.target.value;
+            if(microphone){
+                 switchVisualization(currentVisualization);
+                 if (analyser) {
+                     analyser.smoothingTimeConstant = (currentVisualization === 'linearWave') ? 0.1 : 0.8;
+                 }
+            }
+        });
+
+        resetButton.addEventListener('click', resetApplication);
+        
+        // --- Initialize Page ---
+        document.addEventListener('DOMContentLoaded', () => {
+            resizeCanvas();
+            initSaveSlots();
+            disableControls();
+        });
+</script>
+	<div class="links"><font size="2">
+        <a href="https://www.nekron.site/">Nekron.site</a> | 
+        <a href="https://www.nekron.org/">Nekron.org</a> | 
+        <a href="https://www.nekron.org/vec.html">Vektorweb</a> |
+        <a href="https://www.nekron.org/radar.html">Noise Radar</a>
+      </font>
+    </div>
+</body>
+</html>

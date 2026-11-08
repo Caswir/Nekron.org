@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON to OpenSea CSV Converter (Fixed)</title>
+    <style>
+        /* Hacker Style CSS */
+        body {
+            background-color: #000000;
+            color: #00FF41; /* Neo-green text */
+            font-family: 'Consolas', 'Courier New', monospace;
+            padding: 20px;
+            margin: 0;
+            line-height: 1.5;
+            text-shadow: 0 0 5px #00FF41; /* Subtle glow */
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: auto;
+            border: 1px solid #00FF41;
+            padding: 20px;
+            box-shadow: 0 0 10px #00FF41;
+            background: rgba(0, 0, 0, 0.7); /* Slight transparency */
+        }
+
+        h1 {
+            color: #00FF41;
+            text-align: center;
+            border-bottom: 2px solid #00FF41;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .terminal-output {
+            background-color: #050505;
+            border: 1px solid #00FF41;
+            padding: 15px;
+            min-height: 50px;
+            overflow: auto;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        input[type="file"] {
+            color: #00FF41;
+            background-color: #000000;
+            border: 1px solid #00FF41;
+            padding: 10px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        
+        button {
+            background-color: #00FF41;
+            color: #000000;
+            border: none;
+            padding: 10px 20px;
+            text-transform: uppercase;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #00FF80;
+            color: #000000;
+        }
+        
+        .status {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .status.error {
+            color: #FF0000;
+        }
+
+        .status.success {
+            color: #00FF41;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1><span style="color:#FF0000; margin-right: 5px;">[</span>INITIATE JSON-TO-CSV SEQUENCE<span style="color:#FF0000; margin-left: 5px;">]</span></h1>
+    
+    <p>UPLOAD JSON METADATA FILE:</p>
+    <input type="file" id="jsonFileInput" accept=".json" onchange="readFile()">
+    
+    <div class="terminal-output" id="outputConsole">AWAITING FILE INPUT...</div>
+    
+    <button onclick="convertToCSV()">EXECUTE CONVERSION</button>
+    <div class="status" id="statusMessage"></div>
+</div>
+
+<script>
+    let jsonData = null;
+
+    /** Helper function for error/success messages. */
+    function showStatus(message, type = 'info') {
+        const outputConsole = document.getElementById('outputConsole');
+        const statusMessage = document.getElementById('statusMessage');
+        
+        // --- Centralized Error Handling ---
+        if (type === 'error') {
+            outputConsole.textContent = `[ERROR] ${message}`;
+            statusMessage.textContent = `STATUS: FAILED. Check console for details.`;
+            statusMessage.className = 'status error';
+        } else if (type === 'success') {
+            statusMessage.textContent = `STATUS: CONVERSION COMPLETE. DOWNLOAD EXECUTED.`;
+            statusMessage.className = 'status success';
+        } else {
+            // Info/processing messages
+            outputConsole.textContent = message;
+            statusMessage.textContent = '';
+            statusMessage.className = 'status';
+        }
+    }
+
+    /** Helper function to safely quote a value only if it contains a comma. */
+    function quoteIfNecessary(value) {
+        let str = String(value || '');
+        // Escape existing double-quotes by doubling them
+        str = str.replace(/"/g, '""'); 
+        
+        // ONLY quote the entire string if it contains a comma.
+        if (str.includes(',')) {
+            return `"${str}"`;
+        }
+        return str;
+    }
+
+
+    /** Reads the selected JSON file and stores its content. */
+    function readFile() {
+        const fileInput = document.getElementById('jsonFileInput');
+        const file = fileInput.files[0];
+        
+        jsonData = null; 
+
+        if (!file) {
+            showStatus('ERROR: NO FILE SELECTED.', 'error');
+            return;
+        }
+        showStatus(`[LOADING] File: ${file.name} | Size: ${file.size} bytes...`);
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                const parsed = JSON.parse(event.target.result);
+                jsonData = Array.isArray(parsed) ? parsed : [parsed];
+                showStatus(`[LOAD COMPLETE] Successfully parsed JSON. Found ${jsonData.length} item(s).`, 'info');
+            } catch (e) {
+                showStatus(`Failed to parse JSON: ${e.message}`, 'error');
+                jsonData = null;
+            }
+        };
+
+        reader.onerror = function() {
+            showStatus('Failed to read file.', 'error');
+        };
+
+        reader.readAsText(file);
+    }
+
+    /** Converts the loaded JSON data into OpenSea-compatible CSV format. */
+    function convertToCSV() {
+        if (!jsonData || jsonData.length === 0) {
+            showStatus('No valid JSON data loaded. Please upload a file.', 'error');
+            return;
+        }
+
+        showStatus('[PROCESSING] Generating CSV structure...');
+
+        try {
+            // --- 1. Collect all unique attribute keys for the header ---
+            const attributeKeys = new Set();
+            jsonData.forEach(item => {
+                if (Array.isArray(item.attributes)) {
+                    item.attributes.forEach(attr => {
+                        attributeKeys.add(`attributes[${attr.trait_type}]`);
+                    });
+                }
+            });
+
+            const sortedAttributeKeys = Array.from(attributeKeys).sort();
+
+            // --- 2. Define the main header columns (must be in this order) ---
+            const fixedHeaders = [
+                "tokenID",
+                "name",
+                "description",
+                "file_name", 
+                "external_url"
+            ];
+
+            const header = fixedHeaders.concat(sortedAttributeKeys).join(',');
+            let csv = header + '\r\n'; // Use \r\n for Windows line endings
+
+            // --- 3. Generate CSV rows ---
+            jsonData.forEach(item => {
+                const rowData = {};
+                
+                // --- Apply MINIMAL QUOTING based on your reference file style ---
+                rowData.tokenID = item.tokenID || item.edition || '';
+                rowData.name = quoteIfNecessary(item.name);
+                rowData.description = quoteIfNecessary(item.description);
+                rowData.file_name = quoteIfNecessary(item.file_name); // Still treating file_name like data
+                rowData.external_url = quoteIfNecessary(item.external_url);
+
+                // Create a map of attributes for quick lookup
+                const attributesMap = {};
+                if (Array.isArray(item.attributes)) {
+                    item.attributes.forEach(attr => {
+                        // FIX: Attribute values are also only quoted if a comma is present.
+                        attributesMap[`attributes[${attr.trait_type}]`] = quoteIfNecessary(attr.value);
+                    });
+                }
+
+                // Construct the row string
+                const row = fixedHeaders.map(h => rowData[h])
+                    .concat(sortedAttributeKeys.map(attrKey => attributesMap[attrKey] || ''))
+                    .join(',');
+
+                csv += row + '\r\n';
+            });
+
+            // --- 4. Trigger download ---
+            downloadCSV(csv);
+
+            const consoleSnippet = csv.split('\r\n').slice(0, 5).join('\r\n');
+            document.getElementById('outputConsole').textContent = `[SUCCESS] CSV file generated and download triggered.
+Total Items Processed: ${jsonData.length}
+CSV Data Snippet (Top 4 Rows):
+-------------------
+${consoleSnippet}
+-------------------`;
+            showStatus('Conversion Complete.', 'success');
+
+        } catch (e) {
+            showStatus(`A fatal error occurred during CSV generation: ${e.message}`, 'error');
+        }
+    }
+
+    /** Creates a blob and triggers a download for the generated CSV string. */
+    function downloadCSV(csv) {
+        // Explicitly setting the charset to UTF-8
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); 
+        const link = document.createElement("a");
+        if (link.download !== undefined) { 
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "opensea_metadata.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            // Fallback
+            alert("Download not fully supported in this browser. Please copy the text from the console.");
+        }
+    }
+</script>
+
+</body>
+</html>

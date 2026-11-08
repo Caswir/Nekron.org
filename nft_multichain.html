@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Chain NFT Viewer</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --background-color: #f8f9fa;
+            --card-background: #ffffff;
+            --text-color: #333333;
+            --border-radius: 12px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: var(--text-color);
+        }
+
+        .wallet-info {
+            background: var(--card-background);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .network-stats {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: var(--card-background);
+            padding: 15px 25px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card.ethereum {
+            border-top: 4px solid #627eea;
+        }
+
+        .stat-card.polygon {
+            border-top: 4px solid #8247e5;
+        }
+
+        .stat-card.base {
+            border-top: 4px solid #0052ff;
+        }
+
+        .nft-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .nft-card {
+            background: var(--card-background);
+            border-radius: var(--border-radius);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+
+        .nft-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .nft-image {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            border-bottom: 1px solid #eee;
+        }
+
+        .nft-info {
+            padding: 15px;
+        }
+
+        .nft-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin: 0 0 5px 0;
+        }
+
+        .nft-collection {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0 0 10px 0;
+        }
+
+        .network-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+
+        .network-badge.ethereum {
+            background-color: #ecf0ff;
+            color: #627eea;
+        }
+
+        .network-badge.polygon {
+            background-color: #f2edff;
+            color: #8247e5;
+        }
+
+        .network-badge.base {
+            background-color: #e6f0ff;
+            color: #0052ff;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            text-align: center;
+            color: #e74c3c;
+            padding: 20px;
+            background: #fdf0ef;
+            border-radius: var(--border-radius);
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="wallet-info">
+        <h2>Wallet Address</h2>
+        <p id="walletAddress">0x2Bf7bd830ea2F5C10EEC9DBA919c619E46dBe361</p>
+        <div class="network-stats">
+            <div class="stat-card ethereum">
+                <h3>Ethereum</h3>
+                <p id="ethCount">-</p>
+            </div>
+            <div class="stat-card polygon">
+                <h3>Polygon</h3>
+                <p id="polygonCount">-</p>
+            </div>
+            <div class="stat-card base">
+                <h3>Base</h3>
+                <p id="baseCount">-</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="nftGrid" class="nft-grid">
+        <div class="loading">
+            <div class="loading-spinner"></div>
+            <p>Loading your NFTs...</p>
+        </div>
+    </div>
+
+    <script>
+        const ALCHEMY_API_KEY = 'h_P7BuI-TFG5aJMBu17nHWUqBTonxGwq';
+        const WALLET_ADDRESS = '0x2Bf7bd830ea2F5C10EEC9DBA919c619E46dBe361';
+        
+        const networks = {
+            ethereum: {
+                name: 'Ethereum',
+                baseUrl: 'eth-mainnet',
+                className: 'ethereum'
+            },
+            polygon: {
+                name: 'Polygon',
+                baseUrl: 'polygon-mainnet',
+                className: 'polygon'
+            },
+            base: {
+                name: 'Base',
+                baseUrl: 'base-mainnet',
+                className: 'base'
+            }
+        };
+
+        async function fetchNFTsForNetwork(network) {
+            let allNFTs = [];
+            let pageKey = '';
+            const pageSize = 500;
+            
+            do {
+                const url = `https://${networks[network].baseUrl}.g.alchemy.com/v2/${ALCHEMY_API_KEY}/getNFTs/?owner=${WALLET_ADDRESS}&withMetadata=true&pageSize=${pageSize}&pageKey=${pageKey}`;
+                
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    console.log(`${network} NFTs found:`, data.ownedNfts?.length || 0);
+                    
+                    if (!data.ownedNfts) {
+                        console.error(`No ownedNfts array in response for ${network}:`, data);
+                        break;
+                    }
+
+                    allNFTs = allNFTs.concat(data.ownedNfts
+                        .filter(nft => {
+                            // Filter out airdrops and hidden tokens
+                            const isSpam = nft.spamInfo?.isSpam === true;
+                            const isHidden = nft.contractMetadata?.openSea?.safelistRequestStatus === 'hidden';
+                            const isSuspicious = nft.spamInfo?.classifications?.includes('suspicious');
+                            const isAirdrop = /airdrop|free|claim|reward|gift/i.test(nft.title || '') || /airdrop|free|claim|reward|gift/i.test(nft.contractMetadata?.name || '');
+                            
+                            if (isSpam) {
+                                console.log(`Filtered ${network} NFT (spam):`, {
+                                    name: nft.title,
+                                    collection: nft.contractMetadata?.name,
+                                    reason: 'spam'
+                                });
+                            }
+                            if (isHidden) {
+                                console.log(`Filtered ${network} NFT (hidden):`, {
+                                    name: nft.title,
+                                    collection: nft.contractMetadata?.name,
+                                    reason: 'hidden'
+                                });
+                            }
+                            if (isSuspicious) {
+                                console.log(`Filtered ${network} NFT (suspicious):`, {
+                                    name: nft.title,
+                                    collection: nft.contractMetadata?.name,
+                                    reason: 'suspicious'
+                                });
+                            }
+                            if (isAirdrop) {
+                                console.log(`Filtered ${network} NFT (airdrop):`, {
+                                    name: nft.title,
+                                    collection: nft.contractMetadata?.name,
+                                    reason: 'airdrop'
+                                });
+                            }
+                            
+                            return !(isSpam || isHidden || isSuspicious || isAirdrop);
+                        })
+                        .map(nft => {
+                            console.log(`Including ${network} NFT:`, {
+                                name: nft.title,
+                                collection: nft.contractMetadata?.name,
+                                contract: nft.contract?.address
+                            });
+                            return {
+                                name: nft.title || 'Unnamed NFT',
+                                collectionName: nft.contractMetadata?.name || 'Unknown Collection',
+                                imageUrl: nft.media?.[0]?.gateway || 'https://nekron.space/nft.png',
+                                network: network,
+                                contract: nft.contract?.address,
+                                tokenId: nft.tokenId
+                            };
+                        }));
+
+                    pageKey = data.pageKey;
+                } catch (error) {
+                    console.error(`Error fetching NFTs from ${network}:`, error);
+                    break;
+                }
+            } while (pageKey);
+            
+            return allNFTs;
+        }
+
+        async function fetchAllNFTs() {
+            showLoading(true);
+            try {
+                const results = await Promise.all([
+                    fetchNFTsForNetwork('ethereum'),
+                    fetchNFTsForNetwork('polygon'),
+                    fetchNFTsForNetwork('base')
+                ]);
+                
+                const allNFTs = results.flat();
+                displayNFTs(allNFTs);
+                updateStats(results);
+                // Update Ethereum count specifically
+                document.getElementById('ethCount').textContent = `${results[0].length} NFTs`;
+            } catch (error) {
+                console.error('Error fetching NFTs:', error);
+                displayError();
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function displayNFTs(nfts) {
+            const nftGrid = document.getElementById('nftGrid');
+            
+            nftGrid.innerHTML = nfts.map(nft => `
+                <div class="nft-card">
+                    <img class="nft-image" 
+                         src="${nft.imageUrl || 'https://nekron.space/nft.png'}" 
+                         alt="${nft.name}"
+                         onerror="this.src='https://nekron.space/nft.png'">
+                    <div class="nft-info">
+                        <h3 class="nft-title">${nft.name}</h3>
+                        <p class="nft-collection">${nft.collectionName}</p>
+                        <span class="network-badge ${networks[nft.network].className}">
+                            ${networks[nft.network].name}
+                        </span>
+                        <p class="nft-details" style="font-size: 0.8em; color: #666; margin-top: 5px;">
+                            Token ID: ${nft.tokenId}
+                        </p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateStats(results) {
+            const stats = {
+                ethereum: 0,
+                polygon: 0,
+                base: 0
+            };
+
+            results.forEach((nfts, index) => {
+                const network = ['ethereum', 'polygon', 'base'][index];
+                stats[network] = nfts.length;
+            });
+
+            Object.keys(stats).forEach(network => {
+                const element = document.getElementById(`${network}Count`);
+                if (element) {
+                    element.textContent = `${stats[network]} NFTs`;
+                }
+            });
+        }
+
+        function showLoading(isLoading) {
+            const nftGrid = document.getElementById('nftGrid');
+            if (isLoading) {
+                nftGrid.innerHTML = `
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Loading your NFTs...</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displayError() {
+            const nftGrid = document.getElementById('nftGrid');
+            nftGrid.innerHTML = `
+                <div class="error">
+                    <h3>Error Loading NFTs</h3>
+                    <p>Please try again later.</p>
+                </div>
+            `;
+        }
+
+        // Fetch NFTs when the page loads
+        fetchAllNFTs();
+    </script>
+</body>
+</html>

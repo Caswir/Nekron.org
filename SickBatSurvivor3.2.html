@@ -1,0 +1,2536 @@
+<!DOCTYPE html> 
+<html lang="en"> 
+    <head> 
+        <meta charset="UTF-8"> 
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+        <title>Sick Kitty Survivor</title>         
+        <style>
+            /* --- Basic Setup (Hacker Theme) --- */
+            body, html { 
+                margin: 0; 
+                padding: 0; 
+                overflow: hidden; 
+                background-color: #000000;  /* Black background */ 
+                font-family: 'Consolas', 'Courier New', monospace;  /* Monospace font for hacker feel */ 
+                color: #00ff00;  /* Vibrant green text */ 
+                user-select: none; 
+                -webkit-user-select: none; /* For iOS Safari */
+                touch-action: manipulation; /* Prevent zoom, etc. */
+            } 
+            #game-world { 
+                position: relative; 
+                width: 100vw; 
+                height: 100vh; 
+                background-color: #0d0d0d;  /* Slightly lighter black for game area */ 
+                overflow: hidden;  /* For debugging hitboxes */ 
+                /* filter: brightness(0.5); */ 
+            } 
+            
+            /* --- Player (now an Image) --- */
+            #player { 
+                position: absolute; 
+                width: 37px; 
+                height: 37px;  
+                border: none;  /* No border for the image */ 
+                box-sizing: border-box; 
+                /* MODIFIED: Changed transition to only apply to filter, not transform */
+                transition: filter 0.1s linear; 
+                z-index: 100; 
+                image-rendering: pixelated;  /* Ensures crisp pixels */ 
+                filter: drop-shadow(0 0 5px #00ff00);  /* Green glow effect */ 
+            } 
+            #player.taking-damage { 
+                animation: flash-red 0.3s; 
+                filter: drop-shadow(0 0 10px #ff0000) invert(100%);  /* Red glow and invert for hit effect */ 
+            } 
+            @keyframes flash-red { 
+                0%, 100% {  filter: drop-shadow(0 0 10px #ff0000) invert(100%); }  /* Red glow on hit */ 
+                50% {  filter: drop-shadow(0 0 5px #00ff00); }  /* Briefly return to green */ 
+            } 
+            
+            /* --- Weapons --- */
+            #sonar { 
+                position: absolute;  /* top/left set by JS to follow player */ 
+                transform: translate(-50%, -50%);  /* Center on its position */ 
+                border: 2px dashed rgba(0, 255, 0, 0.5);  /* Green dashed border */ 
+                background-color: rgba(0, 255, 0, 0.1);  /* Transparent green fill */ 
+                border-radius: 50%; 
+                z-index: 90; 
+                box-sizing: border-box; 
+                box-shadow: 0 0 15px rgba(0, 255, 0, 0.7);  /* Stronger green glow */ 
+            } 
+            .spinning-orb { 
+                position: absolute; 
+                width: 20px; 
+                height: 20px;  
+                z-index: 110;  
+                image-rendering: pixelated;  
+                background-image: url('https://www.nekron.org/pics/orbital.gif'); 
+                background-size: contain; 
+                background-repeat: no-repeat; 
+                filter: drop-shadow(0 0 5px #00ffff);  
+            } 
+            .flame-weapon { 
+                position: absolute;  
+                z-index: 105;  
+                transform-origin: 0% 50%; 
+                image-rendering: pixelated; 
+                filter: drop-shadow(0 0 10px #ff6600);  /* Fiery glow */ 
+                display: none;  /* Hidden until acquired */ 
+            } 
+            
+            /* --- NEW: Flamethrower Pickup --- */
+            .flamethrower-pickup {
+                position: absolute;
+                width: 40px;
+                height: 40px;
+                z-index: 76; /* Above other items */
+                cursor: pointer;
+                filter: drop-shadow(0 0 15px #ff6600); /* Fiery glow */
+                image-rendering: pixelated;
+                animation: pulse-white 1.0s infinite; /* Reuse pulse */
+            }
+
+            /* --- Iceblast Weapon --- */
+            .iceblast-shard {
+                position: absolute;
+                width: 20px; /* From config */
+                height: 20px; /* From config */
+                z-index: 106; /* Above flame, below orbs */
+                image-rendering: pixelated;
+                filter: drop-shadow(0 0 10px #00ffff); /* Cyan glow */
+            }
+            
+            /* --- Entities --- */
+            .enemy { 
+                position: absolute;  
+                z-index: 80; 
+                filter: drop-shadow(0 0 5px #ff0000);  /* Red glow effect */ 
+                image-rendering: pixelated;  /* Keep pixel art crisp */ 
+                transition: filter 0.2s ease-out; /* For slow effect */
+            } 
+            .xp-gem { 
+                position: absolute; 
+                width: 12px; 
+                height: 12px; 
+                background-color: #00ffff;  /* Cyan for XP */ 
+                border: 2px solid #00cccc; 
+                border-radius: 2px;  /* Small squares */ 
+                z-index: 70; 
+                cursor: pointer; 
+                transition: transform 0.2s ease-out; 
+                box-shadow: 0 0 8px #00ffff; 
+                image-rendering: pixelated; 
+            } 
+            .xp-gem:hover { 
+                transform: scale(1.5); 
+            } 
+            .xp-boost { 
+                position: absolute; 
+                width: 40px; 
+                height: 40px; 
+                z-index: 75;  /* Above gems, below enemies */ 
+                cursor: pointer; 
+                filter: drop-shadow(0 0 10px #ffffff); 
+                image-rendering: pixelated; 
+                animation: pulse-white 1.5s infinite; 
+            } 
+            @keyframes pulse-white { 
+                0%, 100% {  transform: scale(1);  opacity: 1; }  
+                50% {  transform: scale(1.1);  opacity: 0.8; } 
+            } 
+            
+            /* --- Health Pack --- */
+            .health-pack {
+                position: absolute;
+                width: 40px;
+                height: 40px;
+                z-index: 75;  
+                cursor: pointer;
+                filter: drop-shadow(0 0 10px #ff69b4); /* Hot pink glow */
+                image-rendering: pixelated;
+            }
+
+            /* --- Bom (Uses xp-boost style) --- */
+            /* We will reuse the .xp-boost style for the bom */
+
+            /* --- Iceblast Pickup --- */
+            .iceblast-pickup {
+                position: absolute;
+                width: 40px;
+                height: 40px;
+                z-index: 76; /* Above other items */
+                cursor: pointer;
+                filter: drop-shadow(0 0 15px #00ffff); /* Strong cyan glow */
+                image-rendering: pixelated;
+                animation: pulse-white 1.0s infinite; /* Reuse pulse */
+            }
+
+            /* --- NEW: Extra Life (Comp) Pickup --- */
+            .extra-life-pickup {
+                position: absolute;
+                width: 42px;
+                height: 42px;
+                z-index: 77; /* Above other items */
+                cursor: pointer;
+                filter: drop-shadow(0 0 15px #ffff00); /* Yellow glow */
+                image-rendering: pixelated;
+                animation: pulse-white 0.8s infinite; /* Faster pulse */
+            }
+
+            .damage-number { 
+                position: absolute; 
+                font-size: 1rem; 
+                font-weight: bold; 
+                color: #ff0000;  /* Red for damage numbers */ 
+                animation: float-up 0.5s ease-out forwards; 
+                pointer-events: none; 
+                z-index: 200; 
+                text-shadow: 0 0 5px #ff0000; 
+            } 
+            @keyframes float-up { 
+                from {  opacity: 1;  transform: translateY(0); }  
+                to {  opacity: 0;  transform: translateY(-30px); } 
+            } 
+            
+            /* --- UI Elements --- */
+            #ui-container { 
+                position: fixed; 
+                top: 0; 
+                left: 0; 
+                width: 100%; 
+                padding: 15px; 
+                box-sizing: border-box; 
+                z-index: 1000; 
+            } 
+            #stats-bar { 
+                display: flex; 
+                justify-content: space-between; 
+                align-items: center; 
+                max-width: 900px; 
+                margin: 0 auto; 
+                background: rgba(0, 255, 0, 0.1);  /* Transparent green */ 
+                padding: 10px; 
+                border-radius: 5px;  /* Less rounded */ 
+                border: 1px solid #00cc00;  /* Green border */ 
+                box-shadow: 0 0 10px rgba(0, 255, 0, 0.5); 
+            } 
+            #timer, #level, #enemy-count { 
+                font-size: 1.2rem; 
+                font-weight: bold; 
+                margin: 0 15px; 
+                color: #00ff00; 
+                text-shadow: 0 0 5px #00ff00; 
+            } 
+            
+            /* --- Bars --- */
+            .bar { 
+                width: 30vw; /* Make flexible */
+                max-width: 200px; /* Max size */
+                min-width: 120px; /* Min size */
+                height: 18px;  /* Slightly smaller bars */ 
+                background-color: #333333;  /* Dark grey */ 
+                border-radius: 3px; 
+                overflow: hidden; 
+                border: 1px solid #008800;  /* Darker green border */ 
+                box-shadow: inset 0 0 5px rgba(0, 255, 0, 0.3); 
+            } 
+            #xp-bar.boosted { 
+                border-color: #00ffff; 
+                box-shadow: inset 0 0 10px rgba(0, 255, 255, 0.7), 0 0 15px rgba(0, 255, 255, 0.7); 
+            } 
+            .bar-label { 
+                font-size: 0.8rem; 
+                margin-bottom: 4px; 
+                color: #00ff00; 
+            } 
+            #hp-bar-fill { 
+                width: 100%; 
+                height: 100%; 
+                background-color: #00cc00;  /* Bright green HP */ 
+                transition: width 0.2s; 
+            } 
+            #xp-bar-fill { 
+                width: 0%; 
+                height: 100%; 
+                background-color: #00ffff;  /* Cyan XP */ 
+                transition: width 0.2s; 
+            } 
+
+            /* --- Responsive UI for small screens --- */
+            @media (max-width: 600px) {
+                #stats-bar {
+                    flex-direction: column;
+                    padding: 5px;
+                }
+                .bar {
+                    width: 60vw; /* Use viewport width */
+                    max-width: 200px; /* But don't go crazy */
+                    height: 15px;
+                }
+                #timer, #level {
+                    font-size: 1rem;
+                    margin: 2px 10px;
+                }
+                .bar-label {
+                    font-size: 0.7rem;
+                }
+                .modal p { /* New rule for modal text */
+                    font-size: 0.9rem;
+                }
+            }
+            
+            /* --- Modals (Start, Level Up, Game Over) --- */
+            #modal-container { 
+                position: fixed; 
+                top: 0; 
+                left: 0; 
+                width: 100%; 
+                height: 100%; 
+                background-color: rgba(0, 0, 0, 0.85);  /* More opaque black */ 
+                display: flex; 
+                justify-content: center; 
+                align-items: center; 
+                z-index: 2000; 
+            } 
+            .modal { 
+                background-color: #1a1a1a;  /* Dark grey */ 
+                border: 2px solid #00ff00;  /* Green border */ 
+                padding: 20px; /* Reduced padding for mobile */
+                border-radius: 8px;  /* Slightly rounded */ 
+                text-align: center; 
+                box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);  /* Green glow */ 
+                color: #00ff00;  /* Green text */ 
+                text-shadow: 0 0 5px #00ff00; 
+                max-width: 90%; /* Ensure modal fits on screen */
+                box-sizing: border-box;
+            } 
+
+            /* --- NEW: Screen Flash --- */
+            #screen-flash {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background-color: #000; /* Solid black */
+                z-index: 9998; /* Below modals (2000), above game (1000) */
+                display: none; /* Hidden by default */
+                pointer-events: none;
+            }
+
+            .hidden { 
+                display: none !important; 
+            } 
+            .modal h1 { 
+                margin-top: 0; 
+                color: #00ff00; 
+                text-shadow: 0 0 8px #00ff00; 
+                font-size: 1.5rem; /* Smaller H1 for mobile */
+            } 
+            .modal button { 
+                background-color: #008800;  /* Dark green button */ 
+                color: white;  /* White text on buttons for contrast */ 
+                border: 1px solid #00ff00;  /* Green button border */ 
+                padding: 12px 20px; /* Reduced padding */
+                font-size: 1rem; /* Smaller font */
+                border-radius: 5px; 
+                cursor: pointer; 
+                margin: 8px 5px; /* Reduced margin */
+                transition: background-color 0.2s, transform 0.1s; 
+                box-shadow: 0 0 10px rgba(0, 255, 0, 0.3); 
+                font-family: 'Consolas', 'Courier New', monospace; 
+            } 
+            .modal button:hover { 
+                background-color: #00cc00;  /* Brighter green on hover */ 
+                transform: translateY(-2px); 
+            } 
+            .modal button:active { 
+                transform: translateY(1px); 
+                background-color: #006600;  /* Even darker green on click */ 
+            } 
+            .modal button:disabled { 
+                background-color: #333; 
+                border-color: #555; 
+                color: #888; 
+                cursor: not-allowed; 
+                transform: none; 
+            } 
+            #level-up-modal .upgrade-option { 
+                background-color: #0d0d0d;  /* Game world background for options */ 
+                border: 1px solid #00cc00;  /* Green border */ 
+                margin-bottom: 10px; 
+                display: block; /* Stack buttons vertically */
+                width: 100%;
+                box-sizing: border-box;
+            } 
+            #level-up-modal .upgrade-option:hover { 
+                background-color: #1a1a1a;  /* Darker on hover */ 
+                border-color: #00ff00;  /* Brighter green border */ 
+            } 
+            
+            /* --- UI Buttons (Mute & Pause) --- */
+            #mute-button { 
+                position: fixed; 
+                bottom: 20px; 
+                right: 20px; 
+                z-index: 1001;  /* Above stats bar, below modal */ 
+                width: 27px; /* 33% smaller */
+                height: 27px; /* 33% smaller */
+                font-size: 1rem;  /* 33% smaller */
+                line-height: 27px;  /* 33% smaller */
+                padding: 0; 
+                text-align: center;  /* Hacker theme styling (borrowed from .modal button) */ 
+                background-color: #008800;  /* Dark green button */ 
+                color: white;  /* White text/emoji */ 
+                border: 1px solid #00ff00;  /* Green button border */ 
+                border-radius: 5px; 
+                cursor: pointer; 
+                transition: background-color 0.2s, transform 0.1s; 
+                box-shadow: 0 0 10px rgba(0, 255, 0, 0.3); 
+                font-family: 'Consolas', 'Courier New', monospace; 
+            } 
+            #mute-button:hover { 
+                background-color: #00cc00;  /* Brighter green on hover */ 
+                transform: translateY(-2px); 
+            } 
+            #mute-button:active { 
+                transform: translateY(1px); 
+                background-color: #006600;  /* Even darker green on click */ 
+            } 
+            #mute-button.muted { 
+                background-color: #333; 
+                border-color: #555; 
+                color: #888; 
+            } 
+            
+            /* --- MODIFIED: Pause Button --- */
+            #pause-button-ui {
+                position: fixed;
+                bottom: 20px; /* Moved to bottom */
+                right: 57px; /* Placed beside mute button (20px + 27px + 10px margin) */
+                z-index: 1001;
+                width: 27px; /* 33% smaller */
+                height: 27px; /* 33% smaller */
+                font-size: 1rem; /* 33% smaller */
+                font-weight: bold;
+                line-height: 27px; /* 33% smaller */
+                padding: 0;
+                text-align: center;
+                background-color: #008800;
+                color: white;
+                border: 1px solid #00ff00;
+                border-radius: 5px;
+                cursor: pointer;
+                transition: background-color 0.2s, transform 0.1s;
+                box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+                font-family: 'Consolas', 'Courier New', monospace;
+            }
+            #pause-button-ui:hover {
+                background-color: #00cc00;
+                transform: translateY(-2px);
+            }
+            #pause-button-ui:active {
+                transform: translateY(1px);
+                background-color: #006600;
+            }
+            /* Removed media query as it's no longer needed */
+
+            /* --- Start Screen Ad --- */
+            #start-screen-ad { 
+                max-width: 90%;  /* Don't let it touch the modal edges */ 
+                height: auto; 
+                margin: 20px 0;  /* Add some vertical space */ 
+                border: 2px solid #00ff00;  /* Green border */ 
+                box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);  /* Green glow */ 
+                image-rendering: pixelated;  /* Keep pixel art crisp */ 
+            } 
+            
+            /* --- Top Icons --- */
+            div.top-icons { 
+                position: fixed; 
+                top: 15px; 
+                right: 15px; 
+                display: flex; 
+                z-index: 4101; 
+            }
+            div.top-icons img {
+                height: 30px;
+                display: block;
+                margin-left: 5px;
+            }
+            @media (max-width: 600px) {
+                div.top-icons {
+                    /* This might be too crowded, but let's hide it */
+                    /* Or move it */
+                    /* top: 75px; */ /* <-- Removed this line to keep it top right */
+                }
+            }
+
+            /* --- NEW: Extra Life (Comp) UI Icon --- */
+            #extra-life-icon {
+                position: fixed;
+                top: 15px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 1001; /* Above UI bar, below modals */
+                width: 30px;
+                height: 30px;
+                image-rendering: pixelated;
+                filter: drop-shadow(0 0 8px #ffff00);
+                display: none; /* Hidden by default */
+            }
+
+            /* --- NEW: Virtual Joystick --- */
+            #joystick-container {
+                position: fixed;
+                bottom: 30px;
+                left: 30px;
+                z-index: 1500;
+                display: none; /* Hidden on desktop */
+            }
+            #joystick-base {
+                position: relative;
+                width: 120px;
+                height: 120px;
+                background: rgba(0, 255, 0, 0.1);
+                border: 2px solid rgba(0, 255, 0, 0.4);
+                border-radius: 50%;
+            }
+            #joystick-stick {
+                position: absolute;
+                width: 60px;
+                height: 60px;
+                background: rgba(0, 255, 0, 0.4);
+                border: 2px solid rgba(0, 255, 0, 0.8);
+                border-radius: 50%;
+                left: 30px; /* (120 - 60) / 2 */
+                top: 30px; /* (120 - 60) / 2 */
+                transform: translate(0, 0); /* JS will modify this */
+                transition: transform 0.05s linear;
+            }
+            
+            /* Media query to show joystick only on touch devices */
+            @media (pointer: coarse) {
+                #joystick-container {
+                    display: block;
+                }
+                /* Hide keyboard-only pause instructions */
+                #pause-modal p.keyboard-only {
+                    display: none;
+                }
+            }
+            
+        </style>         
+    </head>     
+    <body> 
+        <div id="game-world"> 
+            <img id="player" src="https://nekron.org/pics/sickkittys.gif" alt="Player Character"> 
+            <div id="sonar"></div>             
+        </div>         
+        <div id="ui-container"> 
+            <div id="stats-bar"> 
+                <div> 
+                    <div class="bar-label">HP</div>                     
+                    <div class="bar" id="hp-bar"> 
+                        <div id="hp-bar-fill"></div>                         
+                    </div>                     
+                </div>                 
+                <div style="text-align: center;"> 
+                    <div id="timer">00:00</div>                     
+                    <div id="level">Level: 1</div>                     
+                </div>                 
+                <div> 
+                    <div class="bar-label">XP</div>                     
+                    <div class="bar" id="xp-bar"> 
+                        <div id="xp-bar-fill"></div>                         
+                    </div>                     
+                </div>                 
+            </div>             
+        </div>         
+        <div id="modal-container"> 
+            <div id="start-modal" class="modal"> 
+                <img src="https://www.nekron.org/pics/sickkittyad.gif" alt="Sick Kitty Ad" id="start-screen-ad"> 
+                <p id="loading-text">Loading assets...</p> 
+                <button id="start-button" disabled>Loading...</button>                 
+            </div>             
+            <div id="level-up-modal" class="modal hidden"> 
+                <h1>UPGRADE AVAILABLE</h1> 
+                <p>Select new directive:</p> 
+                <button id="upgrade-opt-1" class="upgrade-option">Upgrade 1</button>                         
+                <button id="upgrade-opt-2" class="upgrade-option">Upgrade 2</button>                         
+                <button id="upgrade-opt-3" class="upgrade-option">Upgrade 3</button>                         
+            </div>             
+            <div id="game-over-modal" class="modal hidden"> 
+                <h1>CRITICAL FAILURE</h1> 
+                <p id="final-survival-time">System terminated after: 00:00</p> 
+                <p id="final-level">Achieved System Level: 1</p> 
+                <button id="restart-button">Reboot Game</button>                         
+            </div>             
+            <div id="pause-modal" class="modal hidden"> 
+                <h1>GAME PAUSED</h1> 
+                <p>System integrity nominal. Awaiting user input.</p> 
+                <p class="keyboard-only">Press 'P' to resume.</p>
+                <button id="resume-button">Resume Execution</button>                         
+            </div>             
+        </div>         
+        <button id="mute-button">🔊</button>
+        <button id="pause-button-ui">||</button>
+        
+        <div id="joystick-container">
+            <div id="joystick-base">
+                <div id="joystick-stick"></div>
+            </div>
+        </div>
+
+        <img id="extra-life-icon" src="https://www.nekron.org/pics/comp.gif" alt="Extra Life">
+
+        <div class="top-icons"> 
+            <a href="https://www.nekron.org/"><img src="https://www.nekron.org/hawk.png" alt="Hawk Icon"></a> 
+            <a href="https://www.nekron.org/vec"><img src="https://www.nekron.org/squid.gif" alt="Squid Icon"></a> 
+            <a href="https://www.nekron.org/wavenabber"><img src="https://www.nekron.org/ggsm.png" alt="GGSM Icon"></a> 
+            <a href="https://www.nekron.org/radar.html"><img src="https://www.nekron.org/moths.png" alt="Moths Icon"></a> 
+        </div>         
+        
+        <div id="screen-flash"></div>
+        
+        <audio id="background-music" loop> 
+            <source src="https://www.nekron.org/music/lovescars.mp3" type="audio/mpeg"> 
+        </audio>         
+        
+        <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- DOM Elements ---
+            const gameWorld = document.getElementById('game-world');
+            const player = document.getElementById('player');
+            const sonar = document.getElementById('sonar');
+            
+            // UI
+            const hpBarFill = document.getElementById('hp-bar-fill');
+            const xpBarFill = document.getElementById('xp-bar-fill');
+            const levelUI = document.getElementById('level');
+            const timerUI = document.getElementById('timer');
+            const extraLifeIconUI = document.getElementById('extra-life-icon'); // --- NEW ---
+
+            // Modals
+            const modalContainer = document.getElementById('modal-container');
+            const startModal = document.getElementById('start-modal');
+            const levelUpModal = document.getElementById('level-up-modal');
+            const gameOverModal = document.getElementById('game-over-modal');
+            const pauseModal = document.getElementById('pause-modal');
+            
+            // Buttons
+            const startButton = document.getElementById('start-button');
+            const restartButton = document.getElementById('restart-button');
+            const resumeButton = document.getElementById('resume-button');
+            const loadingText = document.getElementById('loading-text');
+            const upgradeButtons = [
+                document.getElementById('upgrade-opt-1'),
+                document.getElementById('upgrade-opt-2'),
+                document.getElementById('upgrade-opt-3')
+            ];
+
+            // Audio
+            const backgroundMusic = document.getElementById('background-music');
+            const muteButton = document.getElementById('mute-button');
+            
+            // --- Mobile Controls ---
+            const pauseButtonUI = document.getElementById('pause-button-ui');
+            const joystickContainer = document.getElementById('joystick-container');
+            const joystickStick = document.getElementById('joystick-stick');
+            
+            // --- Game Configuration ---
+            const CONFIG = {
+                player: {
+                    src: 'https://nekron.org/pics/sickkittys.gif',
+                    speed: 200, // pixels per second
+                    baseHp: 100,
+                    hitCooldown: 1000, // ms of invincibility after hit
+                    hitboxInset: 5 // 5px inset from all sides for player
+                },
+                xp: {
+                    baseNextLevel: 10,
+                    levelMultiplier: 1.4
+                },
+                enemy: {
+                    baseSpawnInterval: 1000, // ms
+                    minSpawnInterval: 100,
+                    spawnIntervalDecay: 0.5, // % decay per level
+                    hpScale: 1.1, // 10% more hp per player level (was 1.2)
+                    speedScale: 1.02, // 2% faster per player level
+                    types: [
+                        { // Level 1 enemy (the bat)
+                            id: 'bat1',
+                            src: 'https://www.nekron.org/pics/bat.gif',
+                            width: 48,
+                            height: 32,
+                            baseHp: 10,
+                            baseSpeed: 70,
+                            baseDamage: 10,
+                            minLevel: 1,
+                            hitboxInset: 10 // 10px inset
+                        },
+                        { // Level 2 enemy (the new bat)
+                            id: 'bat2',
+                            src: 'https://www.nekron.org/pics/bat2.gif',
+                            width: 48, // Assuming same size
+                            height: 32, // Assuming same size
+                            baseHp: 20, // Stronger
+                            baseSpeed: 80, // Faster
+                            baseDamage: 15, // Hits harder
+                            minLevel: 2, // Spawns at player level 2+
+                            hitboxInset: 10 // 10px inset
+                        },
+
+                    { // Level 3 enemy (the new ghost)
+                        id: 'ghost',
+                        src: 'https://www.nekron.org/pics/ghost.gif',
+                        width: 48, 
+                        height: 48, 
+                        baseHp: 25, // Tougher
+                        baseSpeed: 75, // A bit slower than bat2 but tougher
+                        baseDamage: 20, // Hits harder
+                        minLevel: 3, // Spawns at player level 3+
+                        hitboxInset: 12 // 12px inset
+                    },
+
+                    // --- NEW SPIDER ENEMY ---
+                    {
+                        id: 'spider',
+                        src: 'https://www.nekron.org/pics/spider.gif',
+                        width: 32,
+                        height: 32,
+                        baseHp: 8,       // "not be so strong"
+                        baseSpeed: 85,     // Fast, to swarm
+                        baseDamage: 20,     // "not be so strong"
+                        minLevel: 12,      // Spawns after orangeboss is triggerable (at level 11)
+                        hitboxInset: 5,
+                        isBoss: false
+                    },
+
+                        { // Level 8+ Boss (Ghoul)
+                            id: 'ghoul',
+                            src: 'https://www.nekron.org/pics/ghoul.gif',
+                            width: 64, // Bigger
+                            height: 64,
+                            baseHp: 500, // Much tougher
+                            baseSpeed: 60, // Slower, more menacing
+                            baseDamage: 30, // Hits hard
+                            minLevel: 99, // MODIFIED: Doesn't spawn naturally
+                            hitboxInset: 15, 
+                            isBoss: true // Flag for spawn logic
+                        },
+                        { 
+                            id: 'orangeboss',
+                            src: 'https://www.nekron.org/pics/orangeboss.gif',
+                            srcStage2: 'https://www.nekron.org/pics/orangeboss2.gif',
+                            width: 120,
+                            height: 120,
+                            baseHp: 3000, 
+                            baseSpeed: 50, // Stage 1 speed
+                            baseSpeedStage2: 70, // Stage 2 speed
+                            baseDamage: 40,
+                            minLevel: 99, // Doesn't spawn naturally
+                            hitboxInset: 15, 
+                            isBoss: true,
+                            isMultiStage: true,
+                            stage2Threshold: 0.30 // 30% HP
+                        },
+                        
+                        // --- NEW: BIG SPIDER BOSS ---
+                        {
+                            id: 'bigspider',
+                            src: 'https://www.nekron.org/pics/spider.gif', // Reuse small spider graphic
+                            width: 85,  // "large"
+                            height: 85, // "large"
+                            baseHp: 4000,   // Boss-level HP
+                            baseSpeed: 85,   // Boss-level speed
+                            baseDamage: 55,  // Boss-level damage
+                            minLevel: 99,  // Doesn't spawn naturally
+                            hitboxInset: 15,
+                            isBoss: true
+                        }
+                    ]
+                },
+                weapons: {
+                    sonar: {
+                        baseSize: 150, // pixels
+                        sizeScale: 25,
+                        baseDamage: 5,
+                        damageScale: 3,
+                        baseTick: 1000, // ms per damage tick
+                        tickScale: -50 // ms (faster tick)
+                    },
+                    spinningOrbs: {
+                        baseCount: 0,
+                        countScale: 1,
+                        baseSpeed: 2, // radians per second
+                        speedScale: 0.5,
+                        baseDamage: 20,
+                        damageScale: 10,
+                        baseRadius: 100,
+                        radiusScale: 15
+                    },
+                    flamethrower: {
+                        baseLevel: 0,
+                        src: 'https://www.nekron.org/pics/flame.gif',
+                        width: 50,
+                        height: 30,
+                        baseDamage: 10,
+                        damageScale: 5,
+                        baseRange: 150, // pixels
+                        rangeScale: 30,
+                        baseSpread: 0.7, // radians (~40 deg)
+                        spreadScale: 0.1,
+                        baseTick: 500, // ms per damage tick
+                        tickScale: -50
+                    },
+                    iceblast: {
+                        level: 0,
+                        srcShard: 'https://www.nekron.org/pics/icez.gif',
+                        shardWidth: 50,
+                        shardHeight: 39,
+                        baseDamage: 60,    // "a lot of damage"
+                        damageScale: 20,     // --- ADDED ---
+                        baseSpeed: 100,   // "move slow" (player is 200)
+                        speedScale: 10,      // --- ADDED ---
+                        baseTick: 1500,   // 1.5 sec fire rate
+                        tickScale: -150,     // --- ADDED ---
+                        slowAmount: 0.5,  // 50% slow
+                        slowDuration: 2000 // 2 seconds
+                    }
+                },
+                powerUps: {
+                    xpBoost: {
+                        id: 'smokes',
+                        src: 'https://www.nekron.org/pics/smokes.gif',
+                        width: 40,
+                        height: 40,
+                        duration: 30000, // 30 seconds
+                        multiplier: 5,
+                        dropChance: 0.05, // 5% chance
+                        healthBoost: 10 // Amount of HP to restore
+                    },
+                    healthPack: {
+                        id: 'heart',
+                        src: 'https://www.nekron.org/pics/heart.gif',
+                        width: 40,
+                        height: 40,
+                        dropChance: 0.02, // 2% chance
+                        healthRestore: 80 // 80 HP
+                    },
+
+                bom: {
+                    id: 'bom',
+                    src: 'https://www.nekron.org/pics/bong.png',
+                    width: 40,
+                    height: 40,
+                    dropChance: 0.005 // <-- MODIFIED: Was 0
+                },
+                    
+                    // --- NEW: Flamethrower (Brimstone) Pickup ---
+                    flamethrowerPickup: {
+                        id: 'flamethrowerPickup',
+                        src: 'https://www.nekron.org/pics/brimstone.gif', // Reusing the flame asset
+                        width: 50,
+                        height: 50,
+                        dropChance: 0.04 // <-- Set to 4% as requested
+                    },
+
+                    iceblastPickup: {
+                        id: 'iceblastPickup',
+                        src: 'https://www.nekron.org/pics/icezz.gif',
+                        width: 40,
+                        height: 40,
+                        dropChance: 0.01 // --- ADDED ---
+                    },
+                    // --- NEW: Extra Life (Comp) ---
+                    extraLife: {
+                        id: 'extraLife',
+                        src: 'https://www.nekron.org/pics/comp.gif',
+                        width: 42,
+                        height: 42,
+                        dropChance: 0.00002 // 0.002%
+                    }
+                }
+            };
+            
+            // --- Game State ---
+            let playerState = {};
+            let keys = {};
+            let enemies = [];
+            let xpGems = [];
+            let xpBoosts = []; 
+            let healthPacks = []; 
+            let boms = []; 
+            let iceblastPickups = [];
+            let flamethrowerPickups = []; // --- NEW ---
+            let extraLifePickups = []; // --- NEW ---
+            let weapons = {
+                sonar: {},
+                spinningOrbs: {
+                    orbs: []
+                },
+                flamethrower: {
+                    level: 0,
+                    element: null,
+                    lastTick: 0
+                },
+                iceblast: {
+                    level: 0,
+                    lastTick: 0,
+                    projectiles: []
+                }
+            };
+            let gameStats = {};
+            let lastLoopTime = 0;
+            let isPaused = true;
+            let playerInvincible = false;
+            let playerHasExtraLife = false; // --- NEW ---
+            let pendingLevelUps = 0;
+            let preloadedImages = {};
+            let isMuted = false; 
+            let audioInitialized = false; 
+
+            // --- Joystick State ---
+            let joystick = {
+                active: false,
+                touchId: null,
+                baseX: 0,
+                baseY: 0,
+                dx: 0, // Normalized direction X (-1 to 1)
+                dy: 0  // Normalized direction Y (-1 to 1)
+            };
+
+            // --- Image Preloader ---
+            function preloadImages(callback) {
+                // --- MODIFIED: Added +6 for new assets (ice pickup, ice shard, orangeboss_s2, extraLife, bigspider, flame_pickup) ---
+                let imagesToLoad = CONFIG.enemy.types.length + 12; // All enemies + 1 player + 1 flamethrower + 1 xpBoost + 1 orbital + 1 Ad + 1 heart + 1 bom + 1 orangeboss_s2 + 1 icePickup + 1 iceShard + 1 extraLife + 1 flamePickup
+                let imagesLoaded = 0;
+
+                const onImageLoad = () => {
+                    imagesLoaded++;
+                    // console.log(`Loaded image ${imagesLoaded} of ${imagesToLoad}`); // Debug log
+                    if (imagesLoaded === imagesToLoad) {
+                        callback();
+                    }
+                };
+                
+                const onError = () => {
+                    console.warn("Failed to load an image, but continuing...");
+                    onImageLoad(); // BUG FIX: Don't hang on error
+                };
+
+                // Load player image
+                const playerImg = new Image();
+                playerImg.src = CONFIG.player.src;
+                playerImg.onload = onImageLoad;
+                playerImg.onerror = onError;
+                preloadedImages['player'] = playerImg; 
+
+                // Load enemy images
+                CONFIG.enemy.types.forEach(enemyType => {
+                    const img = new Image();
+                    img.src = enemyType.src;
+                    img.onload = onImageLoad;
+                    img.onerror = onError;
+                    preloadedImages[enemyType.id] = img; 
+                });
+
+                // Preload Orange Boss Stage 2
+                const orangeBossS2Img = new Image();
+                orangeBossS2Img.src = CONFIG.enemy.types.find(t => t.id === 'orangeboss').srcStage2;
+                orangeBossS2Img.onload = onImageLoad;
+                orangeBossS2Img.onerror = onError;
+                preloadedImages['orangeboss_s2'] = orangeBossS2Img;
+
+                // Load flamethrower image
+                const flameImg = new Image();
+                flameImg.src = CONFIG.weapons.flamethrower.src;
+                flameImg.onload = onImageLoad;
+                flameImg.onerror = onError;
+                preloadedImages['flame'] = flameImg;
+
+                // Load xpBoost image
+                const boostImg = new Image();
+                boostImg.src = CONFIG.powerUps.xpBoost.src;
+                boostImg.onload = onImageLoad;
+                boostImg.onerror = onError;
+                preloadedImages[CONFIG.powerUps.xpBoost.id] = boostImg;
+                
+                // Load healthPack image
+                const heartImg = new Image();
+                heartImg.src = CONFIG.powerUps.healthPack.src;
+                heartImg.onload = onImageLoad;
+                heartImg.onerror = onError;
+                preloadedImages[CONFIG.powerUps.healthPack.id] = heartImg;
+
+                // Load bom image
+                const bomImg = new Image();
+                bomImg.src = CONFIG.powerUps.bom.src;
+                bomImg.onload = onImageLoad;
+                bomImg.onerror = onError;
+                preloadedImages[CONFIG.powerUps.bom.id] = bomImg;
+
+                // --- NEW: Load Flamethrower Pickup Image ---
+                const flamePickupImg = new Image();
+                flamePickupImg.src = CONFIG.powerUps.flamethrowerPickup.src;
+                flamePickupImg.onload = onImageLoad;
+                flamePickupImg.onerror = onError;
+                preloadedImages[CONFIG.powerUps.flamethrowerPickup.id] = flamePickupImg;
+
+                // --- NEW: Load Iceblast Pickup Image ---
+                const icePickupImg = new Image();
+                icePickupImg.src = CONFIG.powerUps.iceblastPickup.src;
+                icePickupImg.onload = onImageLoad;
+                icePickupImg.onerror = onError;
+                preloadedImages[CONFIG.powerUps.iceblastPickup.id] = icePickupImg;
+
+                // --- NEW: Load Iceblast Shard Image ---
+                const iceShardImg = new Image();
+                iceShardImg.src = CONFIG.weapons.iceblast.srcShard;
+                iceShardImg.onload = onImageLoad;
+                iceShardImg.onerror = onError;
+                preloadedImages['iceblastShard'] = iceShardImg;
+
+                // --- NEW: Load Extra Life (Comp) Image ---
+                const extraLifeImg = new Image();
+                extraLifeImg.src = CONFIG.powerUps.extraLife.src;
+                extraLifeImg.onload = onImageLoad;
+                extraLifeImg.onerror = onError;
+                preloadedImages[CONFIG.powerUps.extraLife.id] = extraLifeImg;
+
+                // Load orbital image
+                const orbitalImg = new Image();
+                orbitalImg.src = 'https://www.nekron.org/pics/orbital.gif';
+                orbitalImg.onload = onImageLoad;
+                orbitalImg.onerror = onError;
+                preloadedImages['orbital'] = orbitalImg;
+
+                // Load start screen ad image
+                const adImg = new Image();
+                adImg.src = 'https://www.nekron.org/pics/sickkittyad.gif';
+                adImg.onload = onImageLoad;
+                adImg.onerror = onError;
+                preloadedImages['ad'] = adImg; 
+            }
+
+
+            // --- Initialization ---
+            function initializeGame() {
+                // Reset Player
+                playerState = {
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2,
+                    hp: CONFIG.player.baseHp,
+                    maxHp: CONFIG.player.baseHp,
+                    speed: CONFIG.player.speed,
+                    level: 1,
+                    xp: 0,
+                    nextLevelXp: CONFIG.xp.baseNextLevel,
+                    hitboxInset: CONFIG.player.hitboxInset,
+                    width: 37, // Store player width
+                    height: 37,  // Store player height
+                    xpMultiplier: 1, 
+                    xpMultiplierTimer: 0,
+                    facingRight: true // --- ADDED: To track player flip state ---
+                };
+
+                // Reset Game Stats
+                gameStats = {
+                    startTime: performance.now(),
+                    enemySpawnTimer: 0,
+                    currentSpawnInterval: CONFIG.enemy.baseSpawnInterval,
+                    bossSpawnPending: false,
+                    pendingBossId: null,
+                    bossSpawnIndex: 0,
+                    bossSpawnCount: 1, // Start with 1 boss
+                    orangeBossDefeated: false, // --- NEW: Added flag ---
+                    // --- REMOVED iceblastSpawnTimer ---
+                };
+                
+                // Reset Entities
+                enemies.forEach(e => e.element.remove());
+                enemies = [];
+                xpGems.forEach(g => g.element.remove());
+                xpGems = [];
+                xpBoosts.forEach(b => b.element.remove()); 
+                xpBoosts = []; 
+                healthPacks.forEach(h => h.element.remove()); 
+                healthPacks = []; 
+                boms.forEach(b => b.element.remove()); 
+                boms = []; 
+                iceblastPickups.forEach(p => p.element.remove());
+                iceblastPickups = []; 
+                flamethrowerPickups.forEach(p => p.element.remove()); // --- NEW ---
+                flamethrowerPickups = []; // --- NEW ---
+                extraLifePickups.forEach(p => p.element.remove()); // --- NEW ---
+                extraLifePickups = []; // --- NEW ---
+                
+                // This block properly clears and resets weapons
+                weapons.spinningOrbs.orbs.forEach(o => o.element.remove());
+                if (weapons.flamethrower.element) {
+                    weapons.flamethrower.element.remove();
+                }
+                weapons.iceblast.projectiles.forEach(p => p.element.remove());
+
+                weapons.flamethrower = {
+                    level: 0,
+                    element: null,
+                    lastTick: 0
+                };
+                weapons.sonar = {
+                    level: 1,
+                    size: CONFIG.weapons.sonar.baseSize,
+                    damage: CONFIG.weapons.sonar.baseDamage,
+                    tick: CONFIG.weapons.sonar.baseTick,
+                    lastTick: 0
+                };
+                weapons.spinningOrbs = {
+                    level: 0,
+                    count: CONFIG.weapons.spinningOrbs.baseCount,
+                    speed: CONFIG.weapons.spinningOrbs.baseSpeed,
+                    damage: CONFIG.weapons.spinningOrbs.baseDamage,
+                    radius: CONFIG.weapons.spinningOrbs.baseRadius,
+                    angle: 0,
+                    orbs: [] // Start with an empty array of orbs
+                };
+                weapons.iceblast = {
+                    level: 0,
+                    lastTick: 0,
+                    projectiles: [],
+                    damage: CONFIG.weapons.iceblast.baseDamage,
+                    speed: CONFIG.weapons.iceblast.baseSpeed,
+                    tick: CONFIG.weapons.iceblast.baseTick,
+                    slowAmount: CONFIG.weapons.iceblast.slowAmount,
+                    slowDuration: CONFIG.weapons.iceblast.slowDuration
+                };
+                
+                // --- Reset Joystick ---
+                joystick.active = false;
+                joystick.touchId = null;
+                joystick.dx = 0;
+                joystick.dy = 0;
+                if (joystickStick) { 
+                     joystickStick.style.transform = 'translate(0, 0)';
+                }
+                
+                // --- Reset Boss Counters ---
+                // (Removed old boss counters)
+                
+                // Reset State
+                pendingLevelUps = 0;
+                isPaused = false;
+                playerHasExtraLife = false; // --- NEW ---
+                lastLoopTime = performance.now();
+                
+                // Update UI
+                updateUI();
+                extraLifeIconUI.style.display = 'none'; // --- NEW ---
+                
+                // Hide Modals
+                modalContainer.classList.add('hidden');
+                startModal.classList.add('hidden');
+                levelUpModal.classList.add('hidden');
+                gameOverModal.classList.add('hidden');
+                pauseModal.classList.add('hidden');
+                
+                document.getElementById('xp-bar').classList.remove('boosted'); 
+
+                // Start Game Loop
+                requestAnimationFrame(gameLoop);
+            }
+
+            // --- Game Loop ---
+            function gameLoop(timestamp) {
+                if (isPaused) {
+                    if (pendingLevelUps > 0) {
+                        isPaused = true; // Ensure pause
+                        showLevelUpModal();
+                        pendingLevelUps--;
+                    }
+                    return;
+                }
+                
+                const deltaTime = (timestamp - lastLoopTime) / 1000; // seconds
+                lastLoopTime = timestamp;
+
+                // --- Update Functions ---
+                updatePlayer(deltaTime);
+                updateEnemies(deltaTime);
+                updateWeapons(deltaTime, timestamp);
+                updatePowerUps(deltaTime); 
+                
+                // --- Spawn Functions ---
+                spawnEnemies(deltaTime);
+                // --- REMOVED checkSpecialSpawns(deltaTime); ---
+                
+                // --- UI Update ---
+                updateTimer(timestamp);
+
+                // --- Next Frame ---
+                requestAnimationFrame(gameLoop);
+            }
+
+            // --- Update Logic ---
+            
+		function updatePlayer(deltaTime) {
+                let moveX = 0; // This will be the directional vector (-1 to 1)
+                let moveY = 0;
+
+                if (joystick.active) {
+                    moveX = joystick.dx;
+                    moveY = joystick.dy; // <-- ADD THIS LINE
+                } else {
+                    // Use keyboard input
+                    if (keys['w'] || keys['ArrowUp']) moveY -= 1;
+                    if (keys['s'] || keys['ArrowDown']) moveY += 1;
+                    if (keys['a'] || keys['ArrowLeft']) moveX -= 1;
+                    if (keys['d'] || keys['ArrowRight']) moveX += 1;
+                }
+
+                let finalDx = 0;
+                let finalDy = 0;
+
+                if (moveX !== 0 || moveY !== 0) {
+                    if (joystick.active) {
+                         // Joystick dx/dy are already scaled from -1 to 1 based on stick position
+                        finalDx = moveX * playerState.speed * deltaTime;
+                        finalDy = moveY * playerState.speed * deltaTime;
+                    } else {
+                        // Keyboard logic (normalize for diagonal)
+                        const kbd_magnitude = Math.sqrt(moveX * moveX + moveY * moveY);
+                        finalDx = (moveX / kbd_magnitude) * playerState.speed * deltaTime;
+                        finalDy = (moveY / kbd_magnitude) * playerState.speed * deltaTime;
+                    }
+                }
+
+                playerState.x += finalDx;
+                playerState.y += finalDy;
+
+                // Clamp player to screen
+                playerState.x = Math.max(0, Math.min(window.innerWidth - playerState.width, playerState.x));
+                playerState.y = Math.max(0, Math.min(window.innerHeight - playerState.height, playerState.y));
+
+                // --- START MODIFICATION: Player Flip ---
+                // Update player facing direction based on horizontal input
+                if (moveX > 0) {
+                    playerState.facingRight = true;
+                } else if (moveX < 0) {
+                    playerState.facingRight = false;
+                }
+                // If moveX is 0, we keep the last facing direction.
+
+                // Apply the transform for flipping
+                if (playerState.facingRight) {
+                    player.style.transform = 'scaleX(1)'; // Default, facing right
+                } else {
+                    player.style.transform = 'scaleX(-1)'; // Flipped, facing left
+                }
+                // --- END MODIFICATION ---
+
+                // Update player position
+                player.style.left = `${playerState.x}px`;
+                player.style.top = `${playerState.y}px`;
+
+                // Make sonar follow player
+                const playerCenterX = playerState.x + playerState.width / 2;
+                const playerCenterY = playerState.y + playerState.height / 2;
+                sonar.style.left = `${playerCenterX}px`;
+                sonar.style.top = `${playerCenterY}px`;
+
+                // Check collisions
+                checkCollisions();
+            }
+            
+            function updateEnemies(deltaTime) {
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+
+                    if (enemy.slowTimer > 0) {
+                        enemy.slowTimer -= deltaTime * 1000;
+                        if (enemy.slowTimer <= 0) {
+                            enemy.speed = enemy.originalSpeed;
+                            enemy.element.style.filter = 'drop-shadow(0 0 5px #ff0000)'; // Reset
+                        }
+                    }
+                    
+                    // Move towards player
+                    const dx = (playerState.x + playerState.width / 2) - (enemy.x + enemy.width / 2);
+                    const dy = (playerState.y + playerState.height / 2) - (enemy.y + enemy.height / 2);
+                    const magnitude = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (magnitude > 0) {
+                        enemy.x += (dx / magnitude) * enemy.speed * deltaTime;
+                        enemy.y += (dy / magnitude) * enemy.speed * deltaTime;
+                    }
+                    
+                    enemy.element.style.left = `${enemy.x}px`;
+                    enemy.element.style.top = `${enemy.y}px`;
+                }
+            }
+            
+            function updatePowerUps(deltaTime) {
+                if (playerState.xpMultiplierTimer > 0) {
+                    playerState.xpMultiplierTimer -= deltaTime * 1000;
+                    
+                    if (playerState.xpMultiplierTimer <= 0) {
+                        playerState.xpMultiplier = 1;
+                        playerState.xpMultiplierTimer = 0;
+                        document.getElementById('xp-bar').classList.remove('boosted');
+                    }
+                }
+            }
+
+            function updateWeapons(deltaTime, timestamp) {
+                const playerCenterX = playerState.x + playerState.width / 2;
+                const playerCenterY = playerState.y + playerState.height / 2;
+
+                // 1. Sonar
+                const sonarStats = weapons.sonar;
+                if (sonarStats.level > 0) {
+                    sonar.style.width = `${sonarStats.size}px`;
+                    sonar.style.height = `${sonarStats.size}px`;
+
+                    // Damage tick logic
+                    if (timestamp - sonarStats.lastTick > sonarStats.tick) {
+                        sonarStats.lastTick = timestamp;
+                        const sonarRadius = sonarStats.size / 2;
+
+                        enemies.forEach(enemy => {
+                            const enemyCenterX = enemy.x + enemy.width / 2;
+                            const enemyCenterY = enemy.y + enemy.height / 2;
+                            const dx = playerCenterX - enemyCenterX;
+                            const dy = playerCenterY - enemyCenterY;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            
+                            if (distance < sonarRadius + (enemy.width / 2)) { 
+                                takeDamage(enemy, sonarStats.damage, 'sonar');
+                            }
+                        });
+                    }
+                }
+                
+                // 2. Spinning Orbs
+                const orbStats = weapons.spinningOrbs;
+                if (orbStats.count > 0) {
+                    orbStats.angle += orbStats.speed * deltaTime;
+                    
+                    for (let i = 0; i < orbStats.count; i++) {
+                        const orb = orbStats.orbs[i];
+                        const angle = orbStats.angle + (i * (Math.PI * 2 / orbStats.count));
+                        
+                        orb.x = playerCenterX + (orbStats.radius * Math.cos(angle)) - (orb.element.offsetWidth / 2);
+                        orb.y = playerCenterY + (orbStats.radius * Math.sin(angle)) - (orb.element.offsetHeight / 2);
+                        
+                        orb.element.style.left = `${orb.x}px`;
+                        orb.element.style.top = `${orb.y}px`;
+
+                        // Check orb collision
+                        enemies.forEach(enemy => {
+                            const enemyHitbox = {
+                                x: enemy.x + enemy.hitboxInset,
+                                y: enemy.y + enemy.hitboxInset,
+                                width: enemy.width - (enemy.hitboxInset * 2),
+                                height: enemy.height - (enemy.hitboxInset * 2)
+                            };
+                            if (isColliding(orb, enemyHitbox)) {
+                                takeDamage(enemy, orbStats.damage, 'orb');
+                            }
+                        });
+                    }
+                }
+
+                // 3. Flamethrower
+                const flameStats = weapons.flamethrower;
+                if (flameStats.level > 0) {
+                    flameStats.element.style.display = 'block'; // Show it
+
+                    // Aiming Logic
+                    let closestEnemy = null;
+                    let minDistance = Infinity;
+
+                    enemies.forEach(enemy => {
+                        const enemyCenterX = enemy.x + enemy.width / 2;
+                        const enemyCenterY = enemy.y + enemy.height / 2;
+                        const dx = enemyCenterX - playerCenterX;
+                        const dy = enemyCenterY - playerCenterY;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            closestEnemy = enemy;
+                        }
+                    });
+
+                    let aimAngle = 0; // Default: aim right
+                    if (closestEnemy) {
+                        const enemyCenterX = closestEnemy.x + closestEnemy.width / 2;
+                        const enemyCenterY = closestEnemy.y + closestEnemy.height / 2;
+                        aimAngle = Math.atan2(enemyCenterY - playerCenterY, enemyCenterX - playerCenterX);
+                    }
+                    
+                    // Position and Rotate GIF
+                    flameStats.element.style.left = `${playerCenterX}px`;
+                    flameStats.element.style.top = `${playerCenterY - flameStats.element.offsetHeight / 2}px`;
+                    flameStats.element.style.transform = `rotate(${aimAngle}rad)`;
+
+                    // Damage Logic
+                    if (timestamp - flameStats.lastTick > flameStats.tick) {
+                        flameStats.lastTick = timestamp;
+
+                        enemies.forEach(enemy => {
+                            const enemyCenterX = enemy.x + enemy.width / 2;
+                            const enemyCenterY = enemy.y + enemy.height / 2;
+                            const dx = enemyCenterX - playerCenterX;
+                            const dy = enemyCenterY - playerCenterY;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+
+                            if (distance > 0 && distance < (flameStats.range + enemy.width / 2)) {
+                                const enemyAngle = Math.atan2(dy, dx);
+                                let angleDiff = Math.abs(aimAngle - enemyAngle);
+                                
+                                if (angleDiff > Math.PI) {
+                                    angleDiff = (Math.PI * 2) - angleDiff;
+                                }
+
+                                if (angleDiff <= flameStats.spread / 2) {
+                                    takeDamage(enemy, flameStats.damage, 'flame');
+                                }
+                            }
+                        });
+                    }
+                }
+                
+                // 4. Iceblast
+                const iceStats = weapons.iceblast;
+                if (iceStats.level > 0) {
+                    // Fire projectile
+                    if (timestamp - iceStats.lastTick > iceStats.tick) {
+                        iceStats.lastTick = timestamp;
+                        
+                        // Aiming Logic (same as flamethrower)
+                        let closestEnemy = null;
+                        let minDistance = Infinity;
+                        enemies.forEach(enemy => {
+                            const enemyCenterX = enemy.x + enemy.width / 2;
+                            const enemyCenterY = enemy.y + enemy.height / 2;
+                            const dx = enemyCenterX - playerCenterX;
+                            const dy = enemyCenterY - playerCenterY;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                closestEnemy = enemy;
+                            }
+                        });
+
+                        if (closestEnemy) {
+                            const enemyCenterX = closestEnemy.x + closestEnemy.width / 2;
+                            const enemyCenterY = closestEnemy.y + closestEnemy.height / 2;
+                            const aimAngle = Math.atan2(enemyCenterY - playerCenterY, enemyCenterX - playerCenterX);
+                            createIceblastShard(playerCenterX, playerCenterY, aimAngle);
+                        }
+                    }
+
+                    // Update existing projectiles
+                    for (let i = iceStats.projectiles.length - 1; i >= 0; i--) {
+                        const proj = iceStats.projectiles[i];
+                        
+                        // Move
+                        proj.x += proj.dx * proj.speed * deltaTime;
+                        proj.y += proj.dy * proj.speed * deltaTime;
+                        proj.element.style.left = `${proj.x}px`;
+                        proj.element.style.top = `${proj.y}px`;
+                        
+                        // Check collision
+                        let hit = false;
+                        for (const enemy of enemies) {
+                            const enemyHitbox = {
+                                x: enemy.x + enemy.hitboxInset,
+                                y: enemy.y + enemy.hitboxInset,
+                                width: enemy.width - (enemy.hitboxInset * 2),
+                                height: enemy.height - (enemy.hitboxInset * 2)
+                            };
+                            
+                            if (isColliding(proj, enemyHitbox)) {
+                                takeDamage(enemy, proj.damage, 'iceblast');
+                                applySlow(enemy); // Apply slow effect
+                                proj.element.remove();
+                                iceStats.projectiles.splice(i, 1);
+                                hit = true;
+                                break;
+                            }
+                        }
+                        if (hit) continue;
+
+                        // Check out of bounds
+                        if (proj.x < -100 || proj.x > window.innerWidth + 100 || proj.y < -100 || proj.y > window.innerHeight + 100) {
+                            proj.element.remove();
+                            iceStats.projectiles.splice(i, 1);
+                        }
+                    }
+                }
+            }
+
+            function updateTimer(timestamp) {
+                const elapsed = Math.floor((timestamp - gameStats.startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                const seconds = (elapsed % 60).toString().padStart(2, '0');
+                timerUI.textContent = `${minutes}:${seconds}`;
+            }
+
+            // --- Spawning ---
+            function spawnEnemies(deltaTime) {
+                gameStats.enemySpawnTimer += deltaTime * 1000; // in ms
+                
+                if (gameStats.enemySpawnTimer > gameStats.currentSpawnInterval) {
+                    gameStats.enemySpawnTimer = 0;
+                    
+                    // Spawn location
+                    const edge = Math.floor(Math.random() * 4);
+                    let x, y;
+                    const buffer = 50; // spawn 50px off-screen
+
+                    if (edge === 0) { // Top
+                        x = Math.random() * window.innerWidth;
+                        y = -buffer;
+                    } else if (edge === 1) { // Right
+                        x = window.innerWidth + buffer;
+                        y = Math.random() * window.innerHeight;
+                    } else if (edge === 2) { // Bottom
+                        x = Math.random() * window.innerWidth;
+                        y = window.innerHeight + buffer;
+                    } else { // Left
+                        x = -buffer;
+                        y = Math.random() * window.innerHeight;
+                    }
+                    
+                    // Boss Spawn Logic
+                    if (gameStats.bossSpawnPending && gameStats.pendingBossId) {
+                        const bossType = CONFIG.enemy.types.find(t => t.id === gameStats.pendingBossId);
+                        if (bossType) {
+                            // --- Spawn one or multiple bosses based on gameStats ---
+                            for (let i = 0; i < gameStats.bossSpawnCount; i++) {
+                                // Spawn them slightly offset from each other
+                                const offsetX = (Math.random() - 0.5) * 80; // 80px offset
+                                const offsetY = (Math.random() - 0.5) * 80;
+                                createEnemy(x + offsetX, y + offsetY, bossType);
+                            }
+                            
+                            gameStats.bossSpawnPending = false; // Reset flags
+                            gameStats.pendingBossId = null;
+                        }
+                    }
+
+                    // 1. Get list of available NON-BOSS enemies
+                    // --- START MODIFICATION ---
+                    const availableEnemies = CONFIG.enemy.types.filter(type => {
+                        // NEW: Special check for spiders
+                        if (type.id === 'spider' && !gameStats.orangeBossDefeated) {
+                            return false; // Do not spawn spiders until orange boss is defeated
+                        }
+                        
+                        // Original check
+                        return playerState.level >= type.minLevel && 
+                               !type.isBoss; // Exclude boss from regular spawns
+                    });
+                    // --- END MODIFICATION ---
+
+                    if (availableEnemies.length === 0) return; // No enemies to spawn
+
+                    // 2. Pick one enemy type to spawn this interval
+                    const enemyType = availableEnemies[Math.floor(Math.random() * availableEnemies.length)];
+                    
+                    // 3. Spawn the chosen enemy (or swarm)
+                    if (enemyType) {
+                        if (enemyType.id === 'spider') {
+                            // "a lot of them" (Swarm Logic)
+                            const count = 3 + Math.floor(Math.random() * 3); // Spawn 3-5 spiders
+                            for (let i = 0; i < count; i++) {
+                                // Spawn them slightly offset from each other
+                                const offsetX = (Math.random() - 0.5) * 60;
+                                const offsetY = (Math.random() - 0.5) * 60;
+                                createEnemy(x + offsetX, y + offsetY, enemyType);
+                            }
+                        } else {
+                            // Standard spawn
+                            createEnemy(x, y, enemyType);
+                        }
+                    }
+                }
+            }
+
+            // --- REMOVED checkSpecialSpawns function ---
+
+            // --- REMOVED spawnOrangeBoss() function ---
+
+            function createEnemy(x, y, enemyType) {
+                const element = preloadedImages[enemyType.id].cloneNode(true);
+                element.className = 'enemy';
+                element.style.width = `${enemyType.width}px`;
+                element.style.height = `${enemyType.height}px`;
+
+                const isBoss = enemyType.isBoss || false;
+                const finalHp = isBoss 
+                    ? enemyType.baseHp 
+                    : Math.floor(enemyType.baseHp * Math.pow(CONFIG.enemy.hpScale, playerState.level - 1));
+                
+                const finalSpeed = isBoss
+                    ? enemyType.baseSpeed
+                    : enemyType.baseSpeed * Math.pow(CONFIG.enemy.speedScale, playerState.level - 1);
+
+                const enemy = {
+                    id: enemyType.id, 
+                    element: element,
+                    x: x,
+                    y: y,
+                    width: enemyType.width, 
+                    height: enemyType.height, 
+                    hitboxInset: enemyType.hitboxInset, 
+                    hp: finalHp, 
+                    maxHp: finalHp, 
+                    speed: finalSpeed, 
+                    originalSpeed: finalSpeed, 
+                    slowTimer: 0, 
+                    damage: enemyType.baseDamage, 
+                    lastHitByOrb: false, 
+                    lastHitByFlame: false,
+                    stage: 1, 
+                    enemyType: enemyType 
+                };
+                
+                enemies.push(enemy);
+                gameWorld.appendChild(element);
+            }
+            
+            function createXPGem(x, y) {
+                const element = document.createElement('div');
+                element.className = 'xp-gem';
+                element.style.left = `${x}px`;
+                element.style.top = `${y}px`;
+                
+                const gem = {
+                    element: element,
+                    x: x,
+                    y: y,
+                    width: 12,
+                    height: 12,
+                    value: 1.7
+                };
+                
+                xpGems.push(gem);
+                gameWorld.appendChild(element);
+            }
+
+            function createXPBoost(x, y) {
+                const config = CONFIG.powerUps.xpBoost;
+                const element = preloadedImages[config.id].cloneNode(true);
+                
+                element.className = 'xp-boost';
+                element.style.left = `${x}px`;
+                element.style.top = `${y}px`;
+                element.style.width = `${config.width}px`;
+                element.style.height = `${config.height}px`;
+
+                const boost = {
+                    element: element,
+                    x: x,
+                    y: y,
+                    width: config.width,
+                    height: config.height
+                };
+
+                xpBoosts.push(boost);
+                gameWorld.appendChild(element);
+            }
+            
+            function createHealthPack(x, y) {
+                const config = CONFIG.powerUps.healthPack;
+                const element = preloadedImages[config.id].cloneNode(true);
+                
+                element.className = 'health-pack';
+                element.style.left = `${x}px`;
+                element.style.top = `${y}px`;
+                element.style.width = `${config.width}px`;
+                element.style.height = `${config.height}px`;
+
+                const pack = {
+                    element: element,
+                    x: x,
+                    y: y,
+                    width: config.width,
+                    height: config.height
+                };
+
+                healthPacks.push(pack);
+                gameWorld.appendChild(element);
+            }
+
+            function createBom(x, y) {
+                const config = CONFIG.powerUps.bom;
+                const element = preloadedImages[config.id].cloneNode(true);
+                
+                element.className = 'xp-boost'; // Reuse xp-boost class for pulsing effect
+                element.style.left = `${x}px`;
+                element.style.top = `${y}px`;
+                element.style.width = `${config.width}px`;
+                element.style.height = `${config.height}px`;
+
+                const bom = {
+                    element: element,
+                    x: x,
+                    y: y,
+                    width: config.width,
+                    height: config.height
+                };
+
+                boms.push(bom);
+                gameWorld.appendChild(element);
+            }
+
+            // --- NEW: Create Flamethrower Pickup ---
+            function createFlamethrowerPickup(x, y) {
+                const config = CONFIG.powerUps.flamethrowerPickup;
+                const element = preloadedImages[config.id].cloneNode(true);
+                
+                element.className = 'flamethrower-pickup';
+                element.style.left = `${x}px`;
+                element.style.top = `${y}px`;
+                element.style.width = `${config.width}px`;
+                element.style.height = `${config.height}px`;
+
+                const pickup = {
+                    element: element,
+                    x: x,
+                    y: y,
+                    width: config.width,
+                    height: config.height
+                };
+
+                flamethrowerPickups.push(pickup);
+                gameWorld.appendChild(element);
+            }
+
+            // --- MODIFIED to accept x, y ---
+            function createIceblastPickup(x, y) {
+                const config = CONFIG.powerUps.iceblastPickup;
+                const element = preloadedImages[config.id].cloneNode(true);
+                
+                // Spawn where the enemy died
+                // const x = Math.random() * (window.innerWidth - config.width); // --- REMOVED ---
+                // const y = Math.random() * (window.innerHeight - config.height); // --- REMOVED ---
+
+                element.className = 'iceblast-pickup';
+                element.style.left = `${x}px`;
+                element.style.top = `${y}px`;
+                element.style.width = `${config.width}px`;
+                element.style.height = `${config.height}px`;
+
+                const pickup = {
+                    element: element,
+                    x: x,
+                    y: y,
+                    width: config.width,
+                    height: config.height
+                };
+
+                iceblastPickups.push(pickup);
+                gameWorld.appendChild(element);
+            }
+
+            // --- NEW: Create Extra Life Pickup ---
+            function createExtraLife(x, y) {
+                const config = CONFIG.powerUps.extraLife;
+                const element = preloadedImages[config.id].cloneNode(true);
+                
+                element.className = 'extra-life-pickup';
+                element.style.left = `${x}px`;
+                element.style.top = `${y}px`;
+                element.style.width = `${config.width}px`;
+                element.style.height = `${config.height}px`;
+
+                const pickup = {
+                    element: element,
+                    x: x,
+                    y: y,
+                    width: config.width,
+                    height: config.height
+                };
+
+                extraLifePickups.push(pickup);
+                gameWorld.appendChild(element);
+            }
+
+            function createSpinningOrb() {
+                const element = document.createElement('div');
+                element.className = 'spinning-orb';
+                
+                const orb = {
+                    element: element,
+                    x: 0,
+                    y: 0,
+                    width: 25,
+                    height: 25
+                };
+                
+                weapons.spinningOrbs.orbs.push(orb);
+                gameWorld.appendChild(element);
+            }
+
+            function createIceblastShard(x, y, angle) {
+                const config = CONFIG.weapons.iceblast;
+                const element = preloadedImages['iceblastShard'].cloneNode(true);
+                element.className = 'iceblast-shard';
+                element.style.width = `${config.shardWidth}px`;
+                element.style.height = `${config.shardHeight}px`;
+
+                // Start from player center
+                const startX = x - config.shardWidth / 2;
+                const startY = y - config.shardHeight / 2;
+
+                element.style.left = `${startX}px`;
+                element.style.top = `${startY}px`;
+                
+                // --- START MODIFICATION: Rotate Iceblast ---
+                element.style.transform = `rotate(${angle}rad)`;
+                // --- END MODIFICATION ---
+
+                const shard = {
+                    element: element,
+                    x: startX,
+                    y: startY,
+                    width: config.shardWidth,
+                    height: config.shardHeight,
+                    dx: Math.cos(angle),
+                    dy: Math.sin(angle),
+                    speed: weapons.iceblast.speed,
+                    damage: weapons.iceblast.damage,
+                    angle: angle // Store angle
+                };
+                
+                weapons.iceblast.projectiles.push(shard);
+                gameWorld.appendChild(element);
+            }
+            
+            function createDamageNumber(amount, x, y) {
+                const element = document.createElement('div');
+                element.className = 'damage-number';
+                element.textContent = amount;
+                element.style.left = `${x}px`;
+                element.style.top = `${y}px`;
+                gameWorld.appendChild(element);
+                
+                setTimeout(() => {
+                    element.remove();
+                }, 500); // Match animation duration
+            }
+
+            // --- Collision & Damage ---
+            function isColliding(rect1, rect2) {
+                return rect1.x < rect2.x + rect2.width &&
+                       rect1.x + rect1.width > rect2.x &&
+                       rect1.y < rect2.y + rect2.height &&
+                       rect1.y + rect1.height > rect2.y;
+            }
+
+            function checkCollisions() {
+                const playerHitbox = { 
+                    x: playerState.x + playerState.hitboxInset, 
+                    y: playerState.y + playerState.hitboxInset, 
+                    width: playerState.width - (playerState.hitboxInset * 2), 
+                    height: playerState.height - (playerState.hitboxInset * 2) 
+                };
+
+                // Player vs Enemy
+                if (!playerInvincible) {
+                    for (const enemy of enemies.values()) {
+                        const enemyHitbox = { 
+                            x: enemy.x + enemy.hitboxInset, 
+                            y: enemy.y + enemy.hitboxInset, 
+                            width: enemy.width - (enemy.hitboxInset * 2), 
+                            height: enemy.height - (enemy.hitboxInset * 2) 
+                        };
+                        
+                        if (isColliding(playerHitbox, enemyHitbox)) {
+                            playerHit(enemy.damage);
+                            break; 
+                        }
+                    }
+                }
+                
+                // Player vs XP Gem
+                const playerPickupRect = { 
+                    x: playerState.x, 
+                    y: playerState.y, 
+                    width: playerState.width, 
+                    height: playerState.height 
+                };
+                for (let i = xpGems.length - 1; i >= 0; i--) {
+                    const gem = xpGems[i];
+                    const gemRect = { x: gem.x, y: gem.y, width: gem.width, height: gem.height };
+                    if (isColliding(playerPickupRect, gemRect)) {
+                        collectXP(gem.value);
+                        gem.element.remove();
+                        xpGems.splice(i, 1);
+                    }
+                }
+
+                // Player vs XP Boost
+                for (let i = xpBoosts.length - 1; i >= 0; i--) {
+                    const boost = xpBoosts[i];
+                    const boostRect = { x: boost.x, y: boost.y, width: boost.width, height: boost.height };
+                    if (isColliding(playerPickupRect, boostRect)) {
+                        activateXPBoost();
+                        boost.element.remove();
+                        xpBoosts.splice(i, 1);
+                    }
+                }
+
+                // Player vs Health Pack
+                for (let i = healthPacks.length - 1; i >= 0; i--) {
+                    const pack = healthPacks[i];
+                    const packRect = { x: pack.x, y: pack.y, width: pack.width, height: pack.height };
+                    if (isColliding(playerPickupRect, packRect)) {
+                        activateHealthPack();
+                        pack.element.remove();
+                        healthPacks.splice(i, 1);
+                    }
+                }
+
+                // Player vs Bom
+                for (let i = boms.length - 1; i >= 0; i--) {
+                    const bom = boms[i];
+                    const bomRect = { x: bom.x, y: bom.y, width: bom.width, height: bom.height };
+                    if (isColliding(playerPickupRect, bomRect)) {
+                        activateBom();
+                        bom.element.remove();
+                        boms.splice(i, 1);
+                    }
+                }
+
+                // --- NEW: Player vs Flamethrower Pickup ---
+                for (let i = flamethrowerPickups.length - 1; i >= 0; i--) {
+                    const pickup = flamethrowerPickups[i];
+                    const pickupRect = { x: pickup.x, y: pickup.y, width: pickup.width, height: pickup.height };
+                    if (isColliding(playerPickupRect, pickupRect)) {
+                        activateFlamethrowerWeapon();
+                        pickup.element.remove();
+                        flamethrowerPickups.splice(i, 1);
+                    }
+                }
+                
+                // Player vs Iceblast Pickup
+                for (let i = iceblastPickups.length - 1; i >= 0; i--) {
+                    const pickup = iceblastPickups[i];
+                    const pickupRect = { x: pickup.x, y: pickup.y, width: pickup.width, height: pickup.height };
+                    if (isColliding(playerPickupRect, pickupRect)) {
+                        activateIceblastWeapon();
+                        pickup.element.remove();
+                        iceblastPickups.splice(i, 1);
+                    }
+                }
+
+                // --- NEW: Player vs Extra Life Pickup ---
+                for (let i = extraLifePickups.length - 1; i >= 0; i--) {
+                    const pickup = extraLifePickups[i];
+                    const pickupRect = { x: pickup.x, y: pickup.y, width: pickup.width, height: pickup.height };
+                    if (isColliding(playerPickupRect, pickupRect)) {
+                        activateExtraLife();
+                        pickup.element.remove();
+                        extraLifePickups.splice(i, 1);
+                    }
+                }
+            }
+            
+            function playerHit(damage) {
+                if (playerInvincible) return;
+                
+                playerState.hp -= damage;
+                
+                if (playerState.hp <= 0) {
+                    // --- NEW: Extra Life Logic ---
+                    if (playerHasExtraLife) {
+                        playerHasExtraLife = false; // Use the life
+                        extraLifeIconUI.style.display = 'none'; // Hide UI icon
+                        playerState.hp = playerState.maxHp; // Full heal
+                        
+                        activateBom(); // Clear the screen
+                        
+                        // Grant invincibility
+                        playerInvincible = true;
+                        player.classList.add('taking-damage');
+                        setTimeout(() => {
+                            playerInvincible = false;
+                            player.classList.remove('taking-damage');
+                        }, CONFIG.player.hitCooldown * 2); // Double invincibility
+                        
+                        updateUI(); // Update HP bar
+                        return; // Stop here, don't trigger game over
+                    } else {
+                        // --- Original Game Over ---
+                        playerState.hp = 0; // Clamp HP
+                        gameOver();
+                    }
+                } else {
+                    playerInvincible = true;
+                    player.classList.add('taking-damage');
+                    setTimeout(() => {
+                        playerInvincible = false;
+                        player.classList.remove('taking-damage');
+                    }, CONFIG.player.hitCooldown);
+                }
+
+                updateUI(); // Update UI after any hit
+            }
+
+            function takeDamage(enemy, damage, weaponType) {
+                if (weaponType === 'orb') {
+                    if (enemy.lastHitByOrb) return;
+                    enemy.lastHitByOrb = true;
+                    setTimeout(() => { enemy.lastHitByOrb = false; }, 500); 
+                }
+
+                if (weaponType === 'flame') {
+                    if (enemy.lastHitByFlame) return;
+                    enemy.lastHitByFlame = true; 
+                    setTimeout(() => { enemy.lastHitByFlame = false; }, weapons.flamethrower.tick - 10); 
+                }
+                
+                enemy.hp -= damage;
+                createDamageNumber(damage, enemy.x + enemy.width / 2, enemy.y);
+
+                if (enemy.enemyType && enemy.enemyType.isMultiStage && enemy.stage === 1) {
+                    const hpPercent = enemy.hp / enemy.maxHp;
+                    if (hpPercent <= enemy.enemyType.stage2Threshold) {
+                        enemy.stage = 2;
+                        enemy.originalSpeed = enemy.enemyType.baseSpeedStage2;
+                        
+                        if (enemy.slowTimer > 0) {
+                            enemy.speed = enemy.originalSpeed * (1 - weapons.iceblast.slowAmount);
+                        } else {
+                            enemy.speed = enemy.originalSpeed;
+                        }
+                        
+                        enemy.element.src = preloadedImages['orangeboss_s2'].src;
+                    }
+                }
+                
+                if (enemy.hp <= 0) {
+                    createXPGem(enemy.x, enemy.y);
+
+                    // --- START MODIFICATION ---
+                    if (enemy.id === 'orangeboss') {
+                        gameStats.orangeBossDefeated = true;
+                    }
+                    // --- END MODIFICATION ---
+
+                    if (enemy.id === 'ghoul' || enemy.id === 'orangeboss' || enemy.id === 'bigspider') { // --- ADDED bigspider ---
+                        createBom(enemy.x, enemy.y);
+                    } else {
+                        // Regular enemy drop logic
+                        if (Math.random() < CONFIG.powerUps.xpBoost.dropChance) {
+                            createXPBoost(enemy.x, enemy.y);
+                        }
+                        
+                        if (Math.random() < CONFIG.powerUps.healthPack.dropChance) {
+                            createHealthPack(enemy.x, enemy.y);
+                        }
+
+                        if (Math.random() < CONFIG.powerUps.bom.dropChance) {
+                            createBom(enemy.x, enemy.y);
+                        }
+
+                        // --- NEW: Flamethrower Pickup Drop Logic ---
+                        if (weapons.flamethrower.level === 0 && Math.random() < CONFIG.powerUps.flamethrowerPickup.dropChance) {
+                            createFlamethrowerPickup(enemy.x, enemy.y);
+                        }
+
+                        // --- NEW: Iceblast Pickup Drop Logic ---
+                        if (weapons.iceblast.level === 0 && Math.random() < CONFIG.powerUps.iceblastPickup.dropChance) {
+                            createIceblastPickup(enemy.x, enemy.y);
+                        }
+
+                        // --- NEW: Extra Life Drop Logic ---
+                        // Only spawn if player doesn't have one AND one isn't already on the ground
+                        if (!playerHasExtraLife && extraLifePickups.length === 0 && Math.random() < CONFIG.powerUps.extraLife.dropChance) {
+                            createExtraLife(enemy.x, enemy.y);
+                        }
+                    }
+
+                    enemy.element.remove();
+                    enemies = enemies.filter(e => e !== enemy);
+                }
+            }
+
+            // --- XP & Leveling ---
+            function collectXP(amount) {
+                playerState.xp += (amount * playerState.xpMultiplier); 
+                if (playerState.xp >= playerState.nextLevelXp) {
+                    levelUp();
+                }
+                updateUI();
+            }
+
+            function activateXPBoost() {
+                const config = CONFIG.powerUps.xpBoost;
+                playerState.xpMultiplier = config.multiplier;
+                playerState.xpMultiplierTimer = config.duration;
+                document.getElementById('xp-bar').classList.add('boosted');
+            }
+
+            function activateHealthPack() {
+                const config = CONFIG.powerUps.healthPack;
+                playerState.hp = Math.min(playerState.maxHp, playerState.hp + config.healthRestore);
+                updateUI(); // Important: update HP bar
+            }
+
+            // --- NEW: Activate Flamethrower Weapon ---
+            function activateFlamethrowerWeapon() {
+                // Only activate if we don't have it
+                if (weapons.flamethrower.level > 0) return; 
+
+                const config = CONFIG.weapons.flamethrower;
+                weapons.flamethrower = {
+                    level: 1,
+                    damage: config.baseDamage,
+                    range: config.baseRange,
+                    spread: config.baseSpread,
+                    tick: config.baseTick,
+                    lastTick: 0,
+                    element: preloadedImages['flame'].cloneNode(true)
+                };
+                weapons.flamethrower.element.className = 'flame-weapon';
+                weapons.flamethrower.element.style.width = `${config.width}px`;
+                weapons.flamethrower.element.style.height = `${config.height}px`;
+                gameWorld.appendChild(weapons.flamethrower.element);
+            }
+            
+            function activateIceblastWeapon() {
+                weapons.iceblast.level = 1;
+            }
+            
+            // --- NEW: Activate Extra Life ---
+            function activateExtraLife() {
+                if (playerHasExtraLife) return; // Should be impossible due to spawn logic, but good failsafe
+                playerHasExtraLife = true;
+                extraLifeIconUI.style.display = 'block';
+            }
+            
+            function applySlow(enemy) {
+                const iceStats = weapons.iceblast;
+                enemy.slowTimer = iceStats.slowDuration;
+                enemy.speed = enemy.originalSpeed * (1 - iceStats.slowAmount);
+                enemy.element.style.filter = 'drop-shadow(0 0 10px #00ffff) brightness(0.7)'; // Cyan glow
+            }
+
+            // --- NEW: Screen Flash Function ---
+            function flashScreen(count, interval) {
+                if (count <= 0) return;
+
+                const screenFlash = document.getElementById('screen-flash');
+                if (!screenFlash) return; // Safety check
+
+                // Flash ON
+                screenFlash.style.display = 'block';
+
+                setTimeout(() => {
+                    // Flash OFF
+                    screenFlash.style.display = 'none';
+
+                    setTimeout(() => {
+                        // Recurse for next flash
+                        flashScreen(count - 1, interval);
+                    }, interval / 2); // Wait for half interval before next flash
+
+                }, interval / 2); // Wait for half interval
+            }
+
+            function activateBom() {
+                // --- NEW: Screen Flash Effect ---
+                flashScreen(3, 80); // 3 flashes, 80ms total cycle time (40ms on, 40ms off)
+
+                // 1. Kill all NON-BOSS enemies and make them drop XP
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+                    
+                    // Check if the enemy is a boss
+                    if (enemy.enemyType && enemy.enemyType.isBoss) {
+                        continue; // Skip this enemy, it's a boss
+                    }
+                    
+                    createXPGem(enemy.x, enemy.y); // Drop XP
+                    enemy.element.remove();
+                    enemies.splice(i, 1);
+                }
+
+                // 2. Collect all XP at once
+                for (let i = xpGems.length - 1; i >= 0; i--) {
+                    const gem = xpGems[i];
+                    collectXP(gem.value); // Add XP to player
+                    gem.element.remove();
+                    xpGems.splice(i, 1);
+                }
+
+                // --- REMOVED Old Boss Spawn Trigger ---
+            }
+
+            function levelUp() {
+                isPaused = true;
+                playerState.level++;
+                playerState.xp = playerState.xp - playerState.nextLevelXp; // Rollover
+                playerState.nextLevelXp = Math.floor(CONFIG.xp.baseNextLevel * Math.pow(CONFIG.xp.levelMultiplier, playerState.level - 1));
+                
+                playerState.hp = Math.min(playerState.maxHp, playerState.hp + 20);
+                
+                gameStats.currentSpawnInterval = Math.max(CONFIG.enemy.minSpawnInterval, 
+                    CONFIG.enemy.baseSpawnInterval * Math.pow(1 - (CONFIG.enemy.spawnIntervalDecay / 100), playerState.level - 1));
+
+                // --- NEW Boss Rotation Logic ---
+                // Triggers at level 8, 11, 14, 17, 20...
+                if (playerState.level >= 8 && (playerState.level - 8) % 3 === 0) {
+                    
+                    // --- Check if we should upgrade to double bosses ---
+                    // We've completed the first rotation (8, 11, 14). At level 17, start doubles.
+                    if (playerState.level === 17) {
+                        gameStats.bossSpawnCount = 2;
+                    }
+
+                    // --- MODIFICATION: Swapped bigspider and orangeboss ---
+                    // The rotation: Ghoul -> Orange Boss -> Big Spider -> repeat
+                    const bossRotation = ['ghoul', 'orangeboss', 'bigspider'];
+                    
+                    // Get the boss for this level
+                    const bossIdToSpawn = bossRotation[gameStats.bossSpawnIndex];
+                    
+                    // Set the flags for the spawnEnemies function
+                    gameStats.pendingBossId = bossIdToSpawn;
+                    gameStats.bossSpawnPending = true;
+                    
+                    // Increment and wrap the index for the *next* boss spawn
+                    gameStats.bossSpawnIndex = (gameStats.bossSpawnIndex + 1) % bossRotation.length;
+                }
+                
+                // --- REMOVED iceblastSpawnTimer logic ---
+                
+                pendingLevelUps++;
+                updateUI();
+            }
+
+            function showLevelUpModal() {
+                const upgrades = getUpgradeOptions(3);
+                
+                upgradeButtons.forEach((button, index) => {
+                    if (!upgrades[index]) {
+                        button.textContent = "---";
+                        const newButton = button.cloneNode(true);
+                        button.parentNode.replaceChild(newButton, button);
+                        newButton.disabled = true;
+                        upgradeButtons[index] = newButton;
+                        return;
+                    }
+                    const upgrade = upgrades[index];
+                    button.textContent = upgrade.description;
+                    const newButton = button.cloneNode(true);
+                    button.parentNode.replaceChild(newButton, button);
+                    newButton.addEventListener('click', () => applyUpgrade(upgrade));
+                    upgradeButtons[index] = newButton; 
+                    newButton.disabled = false; 
+                });
+
+                modalContainer.classList.remove('hidden');
+                levelUpModal.classList.remove('hidden');
+            }
+            
+            function getUpgradeOptions(count) {
+                const options = [
+                    // Sonar
+                    { id: 'sonar_damage', description: `Sonar Damage +${CONFIG.weapons.sonar.damageScale}`, apply: () => weapons.sonar.damage += CONFIG.weapons.sonar.damageScale },
+                    { id: 'sonar_size', description: `Sonar Range +${CONFIG.weapons.sonar.sizeScale}px`, apply: () => weapons.sonar.size += CONFIG.weapons.sonar.sizeScale },
+                    { id: 'sonar_tick', description: `Sonar Frequency +${-CONFIG.weapons.sonar.tickScale}ms`, apply: () => weapons.sonar.tick = Math.max(100, weapons.sonar.tick + CONFIG.weapons.sonar.tickScale) },
+                    
+                    // Orbs
+                    { id: 'orb_add', description: 'Deploy +1 Orbital Defender', apply: () => {
+                        weapons.spinningOrbs.level++;
+                        weapons.spinningOrbs.count += CONFIG.weapons.spinningOrbs.countScale;
+                        createSpinningOrb();
+                    }},
+                    { id: 'orb_damage', description: `Orbital Damage +${CONFIG.weapons.spinningOrbs.damageScale}`, apply: () => weapons.spinningOrbs.damage += CONFIG.weapons.spinningOrbs.damageScale },
+                    { id: 'orb_speed', description: `Orbital Velocity +${CONFIG.weapons.spinningOrbs.speedScale}`, apply: () => weapons.spinningOrbs.speed += CONFIG.weapons.spinningOrbs.speedScale },
+
+                    // Flamethrower Upgrades
+                    // --- REMOVED 'flame_add' OPTION ---
+                    { id: 'flame_damage', description: `Flame Damage +${CONFIG.weapons.flamethrower.damageScale}`, apply: () => weapons.flamethrower.damage += CONFIG.weapons.flamethrower.damageScale },
+                    { id: 'flame_range', description: `Flame Range +${CONFIG.weapons.flamethrower.rangeScale}px`, apply: () => weapons.flamethrower.range += CONFIG.weapons.flamethrower.rangeScale },
+                    { id: 'flame_spread', description: `Flame Spread +${Math.round(CONFIG.weapons.flamethrower.spreadScale * 180 / Math.PI)}deg`, apply: () => weapons.flamethrower.spread += CONFIG.weapons.flamethrower.spreadScale },
+                    { id: 'flame_tick', description: `Flame Frequency +${-CONFIG.weapons.flamethrower.tickScale}ms`, apply: () => weapons.flamethrower.tick = Math.max(100, weapons.flamethrower.tick + CONFIG.weapons.flamethrower.tickScale) },
+
+                    // --- NEW: Iceblast Upgrades ---
+                    { id: 'ice_damage', description: `Iceblast Damage +${CONFIG.weapons.iceblast.damageScale}`, apply: () => weapons.iceblast.damage += CONFIG.weapons.iceblast.damageScale },
+                    { id: 'ice_speed', description: `Iceblast Speed +${CONFIG.weapons.iceblast.speedScale}`, apply: () => weapons.iceblast.speed += CONFIG.weapons.iceblast.speedScale },
+                    { id: 'ice_tick', description: `Iceblast Frequency +${-CONFIG.weapons.iceblast.tickScale}ms`, apply: () => weapons.iceblast.tick = Math.max(200, weapons.iceblast.tick + CONFIG.weapons.iceblast.tickScale) },
+
+                    // Player
+                    { id: 'player_speed', description: 'Boost Speed (+20)', apply: () => playerState.speed += 20 },
+                    { id: 'player_hp', description: 'Sandwich (+20 Max HP)', apply: () => {
+                        playerState.maxHp += 20;
+                        playerState.hp += 20; // Heal
+                    }},
+                    { id: 'player_heal', description: 'Cigarette (Heal 30% HP)', apply: () => playerState.hp = Math.min(playerState.maxHp, playerState.hp + playerState.maxHp * 0.3) },
+                ];
+                
+                // Filter out upgrades
+                let availableOptions = options.filter(opt => {
+                    if (opt.id.startsWith('orb_') && opt.id !== 'orb_add' && weapons.spinningOrbs.level === 0) {
+                        return false;
+                    }
+                    if (opt.id === 'orb_add' && weapons.spinningOrbs.count >= 4) { 
+                        return false;
+                    }
+                    
+                    // --- MODIFIED: Filter for Flamethrower ---
+                    if (opt.id.startsWith('flame_') && weapons.flamethrower.level === 0) {
+                        return false;
+                    }
+                    
+                    // --- NEW: Filter for Iceblast ---
+                    if (opt.id.startsWith('ice_') && weapons.iceblast.level === 0) {
+                        return false;
+                    }
+                    
+                    return true;
+                });
+                
+                availableOptions.sort(() => 0.5 - Math.random());
+                return availableOptions.slice(0, count);
+            }
+            
+            function applyUpgrade(upgrade) {
+                upgrade.apply();
+                
+                modalContainer.classList.add('hidden');
+                levelUpModal.classList.add('hidden');
+                
+                updateUI();
+                
+                if (pendingLevelUps > 0) {
+                    pendingLevelUps--;
+                    showLevelUpModal();
+                } else {
+                    isPaused = false;
+                    lastLoopTime = performance.now();
+                    requestAnimationFrame(gameLoop);
+                }
+            }
+
+            // --- Game State ---
+
+            function togglePause() {
+                if (!gameOverModal.classList.contains('hidden') || !levelUpModal.classList.contains('hidden')) {
+                    return;
+                }
+
+                isPaused = !isPaused; 
+
+                if (isPaused) {
+                    modalContainer.classList.remove('hidden');
+                    pauseModal.classList.remove('hidden');
+                    backgroundMusic.pause(); 
+                } else {
+                    modalContainer.classList.add('hidden');
+                    pauseModal.classList.add('hidden');
+                    
+                    if (!isMuted && audioInitialized) {
+                         backgroundMusic.play().catch(e => console.warn("Music play failed:", e));
+                    }
+                    
+                    lastLoopTime = performance.now();
+                    requestAnimationFrame(gameLoop);
+                }
+            }
+
+            function gameOver() {
+                isPaused = true;
+                
+                document.getElementById('final-survival-time').textContent = `System terminated after: ${timerUI.textContent}`;
+                document.getElementById('final-level').textContent = `Achieved System Level: ${playerState.level}`;
+                
+                modalContainer.classList.remove('hidden');
+                gameOverModal.classList.remove('hidden');
+
+                backgroundMusic.pause();
+                backgroundMusic.currentTime = 0; 
+            }
+
+            function updateUI() {
+                const hpPercent = (playerState.hp / playerState.maxHp) * 100;
+                hpBarFill.style.width = `${hpPercent}%`;
+                
+                const xpPercent = (playerState.xp / playerState.nextLevelXp) * 100;
+                xpBarFill.style.width = `${xpPercent}%`;
+                
+                levelUI.textContent = `Level: ${playerState.level}`;
+            }
+
+            // --- Event Listeners ---
+            
+            // Keyboard Input
+            window.addEventListener('keydown', (e) => {
+                keys[e.key.toLowerCase()] = true;
+                if (e.key.toLowerCase() === 'p') {
+                    togglePause();
+                }
+            });
+            window.addEventListener('keyup', (e) => {
+                keys[e.key.toLowerCase()] = false;
+            });
+            
+            // Button Clicks
+            startButton.addEventListener('click', () => {
+                initializeGame();
+                audioInitialized = true; 
+                if (!isMuted) {
+                    backgroundMusic.play().catch(e => console.warn("Music autoplay blocked:", e));
+                }
+            });
+            
+            restartButton.addEventListener('click', () => {
+                initializeGame();
+                if (!isMuted && audioInitialized) {
+                    backgroundMusic.play().catch(e => console.warn("Music play failed:", e));
+                }
+            });
+
+            resumeButton.addEventListener('click', togglePause);
+            
+            pauseButtonUI.addEventListener('click', togglePause);
+
+            // Mute Button
+            muteButton.addEventListener('click', () => {
+                isMuted = !isMuted;
+                if (isMuted) {
+                    backgroundMusic.pause();
+                    muteButton.textContent = '🔇';
+                    muteButton.classList.add('muted');
+                } else {
+                    muteButton.textContent = '🔊';
+                    muteButton.classList.remove('muted');
+                    
+                    const gameIsActive = startModal.classList.contains('hidden') && 
+                                         gameOverModal.classList.contains('hidden');
+                                         
+                    if (gameIsActive && audioInitialized && !isPaused) { 
+                        backgroundMusic.play().catch(e => console.warn("Music play failed:", e));
+                    }
+                }
+            });
+            
+            // --- Joystick Touch Listeners ---
+            function handleTouchStart(e) {
+                // Only act on touches starting on the joystick base
+                const touch = e.changedTouches[0];
+                if (!joystickContainer) return; // Guard clause
+                const joystickBaseRect = joystickContainer.getBoundingClientRect();
+
+                // Check if touch is within the general *container* area
+                // --- FIX: Corrected joystickBaseR to joystickBaseRect ---
+                if (touch.clientX >= joystickBaseRect.left && touch.clientX <= joystickBaseRect.right &&
+                    touch.clientY >= joystickBaseRect.top && touch.clientY <= joystickBaseRect.bottom) {
+                    
+                    e.preventDefault();
+                    if (joystick.active) return; // Already tracking a touch
+
+                    joystick.active = true;
+                    joystick.touchId = touch.identifier;
+                    
+                    // Center of the BASE element
+                    joystick.baseX = joystickBaseRect.left + joystickBaseRect.width / 2;
+                    joystick.baseY = joystickBaseRect.top + joystickBaseRect.height / 2;
+                    
+                    // Manually call move to handle the first press
+                    handleTouchMove(e);
+                }
+            }
+
+            function handleTouchMove(e) {
+                if (!joystick.active) return;
+
+                let touch = null;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === joystick.touchId) {
+                        touch = e.changedTouches[i];
+                        break;
+                    }
+                }
+
+                if (!touch) return; // Not our touch
+                e.preventDefault(); // Prevent scrolling
+                
+                if (!joystickContainer || !joystickStick) return; // Guard clauses
+
+                const joystickBaseRect = joystickContainer.getBoundingClientRect();
+                const maxDistance = joystickBaseRect.width / 2; // Radius of the base
+
+                let stickX = touch.clientX - joystick.baseX;
+                let stickY = touch.clientY - joystick.baseY;
+                let distance = Math.sqrt(stickX * stickX + stickY * stickY);
+
+                if (distance > maxDistance) {
+                    stickX = (stickX / distance) * maxDistance;
+                    stickY = (stickY / distance) * maxDistance;
+                }
+
+                joystickStick.style.transform = `translate(${stickX}px, ${stickY}px)`;
+
+                // Set scaled direction vector for game loop
+                joystick.dx = stickX / maxDistance;
+                joystick.dy = stickY / maxDistance;
+            }
+
+            function handleTouchEnd(e) {
+                if (!joystick.active) return;
+
+                let touchEnded = false;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === joystick.touchId) {
+                        touchEnded = true;
+                        break;
+                    }
+                }
+
+                if (touchEnded) {
+                    e.preventDefault();
+                    joystick.active = false;
+                    joystick.touchId = null;
+                    joystick.dx = 0;
+                    joystick.dy = 0;
+                    if (joystickStick) {
+                        joystickStick.style.transform = 'translate(0, 0)';
+                    }
+                }
+            }
+            
+            // --- START PRELOADING ---
+            preloadImages(() => {
+                console.log("All assets loaded.");
+                loadingText.textContent = "Based off of Sick Kitty Vampire #3028.";
+                startButton.disabled = false;
+                startButton.textContent = "Execute Program";
+            });
+
+            // --- Fix potential null reference on joystick script error ---
+            // Check for joystick elements before adding listeners
+            if (joystickContainer) {
+                window.addEventListener('touchstart', handleTouchStart, { passive: false });
+                window.addEventListener('touchmove', handleTouchMove, { passive: false });
+                window.addEventListener('touchend', handleTouchEnd, { passive: false });
+                window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+            } else {
+                console.warn("Joystick container not found. Touch controls disabled.");
+            }
+
+
+        });
+    </script>         
+    </body>     
+</html>

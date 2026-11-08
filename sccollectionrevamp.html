@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow Cats | My Collection</title>
+    <style>
+        /* --- Reset & Base Styles --- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #000000;
+            color: #FFC107; /* Amber/Orange Gold */
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* --- Header & Nav --- */
+        header {
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #222;
+            background: #050505;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px rgba(255, 193, 7, 0.4);
+            color: #FFC107;
+        }
+
+        /* --- Wallet Button (Icon Only / Square Outline) --- */
+        #connect-btn {
+            background-color: transparent;
+            color: #FFC107;
+            border: 1px solid #FFC107;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 0; /* Pure square outline */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-width: 44px;
+            min-height: 44px;
+        }
+
+        #connect-btn:hover {
+            background-color: rgba(255, 193, 7, 0.1);
+            box-shadow: 0 0 15px rgba(255, 193, 7, 0.2);
+        }
+
+        #connect-btn svg {
+            width: 22px;
+            height: 22px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        #connect-btn span {
+            font-size: 0.85rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* --- Main Content --- */
+        main {
+            flex: 1;
+            padding: 40px 20px;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .status-container {
+            text-align: center;
+            margin-top: 100px;
+            max-width: 600px;
+        }
+
+        .status-msg {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            letter-spacing: 1px;
+            font-weight: 300;
+        }
+
+        .sub-status {
+            font-size: 0.9rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* --- Grid Layout --- */
+        .nft-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 20px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        /* --- NFT Card --- */
+        .nft-card {
+            background-color: #0a0a0a;
+            border: 1px solid #222;
+            border-radius: 4px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .nft-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border: 1px solid #FFC107;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .nft-card:hover {
+            transform: translateY(-8px);
+            background-color: #111;
+        }
+
+        .nft-card:hover::after {
+            opacity: 0.4;
+        }
+
+        .img-container {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            overflow: hidden;
+            background: #000;
+        }
+
+        .nft-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .nft-card:hover .nft-img {
+            transform: scale(1.05);
+        }
+
+        .nft-info {
+            padding: 15px;
+            background: linear-gradient(to top, #000, transparent);
+        }
+
+        .nft-name {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #fff;
+        }
+
+        .nft-id {
+            font-size: 0.8rem;
+            color: #FFC107;
+            opacity: 0.7;
+            letter-spacing: 1px;
+        }
+
+        /* --- Magnify Modal --- */
+        #details-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(8px);
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: #050505;
+            border: 1px solid #333;
+            max-width: 1000px;
+            width: 100%;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: row;
+            position: relative;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            border-radius: 4px;
+            overflow: hidden;
+            animation: modalIn 0.3s ease-out;
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px; 
+            right: 20px;
+            font-size: 1.2rem;
+            color: #FFC107;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.2s;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            padding: 5px;
+            user-select: none;
+        }
+
+        .modal-close:hover { 
+            transform: scale(1.1);
+            text-shadow: 0 0 10px #FFC107;
+        }
+
+        .modal-left {
+            flex: 1.2;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-right {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+            border-left: 1px solid #222;
+        }
+
+        .modal-main-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .modal-rank {
+            background: rgba(255, 193, 7, 0.1);
+            color: #FFC107;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .modal-title {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            color: #fff;
+        }
+
+        .modal-subtitle {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .trait-section-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #888;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #222;
+            padding-bottom: 8px;
+        }
+
+        .traits-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .trait-box {
+            background: #111;
+            padding: 12px;
+            border-radius: 4px;
+            border: 1px solid #222;
+        }
+
+        .trait-type {
+            font-size: 0.65rem;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .trait-value {
+            font-size: 0.85rem;
+            color: #FFC107;
+            font-weight: 600;
+        }
+
+        .opensea-link {
+            display: block;
+            text-align: center;
+            background: #FFC107;
+            color: #000;
+            text-decoration: none;
+            padding: 12px;
+            font-weight: bold;
+            border-radius: 2px;
+            transition: background 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .opensea-link:hover {
+            background: #e6ae06;
+        }
+
+        /* Mobile Viewports */
+        @media (max-width: 850px) {
+            .modal-content {
+                flex-direction: column;
+                max-height: 95vh;
+            }
+            .modal-left {
+                flex: none;
+                height: 350px;
+            }
+            .modal-right {
+                padding: 25px;
+            }
+            header {
+                padding: 15px 20px;
+            }
+            h1 { font-size: 1.1rem; }
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #333;
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+    </style>
+    <script>
+        // Suppress non-blocking COOP/CORB fetch errors from Web3Modal Discovery
+        window.addEventListener('error', function(event) {
+            if (event.message && (event.message.includes('Cross-Origin-Opener-Policy') || event.message.includes('Failed to fetch'))) {
+                if (event.filename && event.filename.includes('walletconnect')) {
+                    event.preventDefault();
+                    return true;
+                }
+            }
+        }, true);
+    </script>
+</head>
+<body>
+
+    <header>
+        <h1>Shadow Cats</h1>
+        <button id="connect-btn" title="Wallet">
+            <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>
+        </button>
+    </header>
+
+    <main>
+        <div id="status-container" class="status-container">
+            <div id="status" class="status-msg">Accessing Shadow Realm</div>
+            <div id="sub-status" class="sub-status">Connect Wallet to view your collection</div>
+        </div>
+        <div id="grid" class="nft-grid"></div>
+    </main>
+
+    <!-- Details Modal -->
+    <div id="details-modal">
+        <!-- Orange close button [ X ] -->
+        <span class="modal-close" id="modal-close">[ X ]</span>
+        <div class="modal-content" id="modal-target">
+            <!-- Content Injected via JavaScript -->
+        </div>
+    </div>
+
+    <footer>
+        Verification via OpenSea Protocol
+    </footer>
+
+    <script type="module">
+        import { createWeb3Modal, defaultConfig } from 'https://esm.sh/@web3modal/ethers@5.1.11';
+
+        const projectId = 'e674066aac34c10049758e0f96fb7ca1'; 
+
+        const mainnet = {
+            chainId: 1,
+            name: 'Ethereum',
+            currency: 'ETH',
+            explorerUrl: 'https://etherscan.io',
+            rpcUrl: 'https://cloudflare-eth.com' 
+        };
+
+        const metadata = {
+            name: 'Shadow Cats',
+            description: 'Gallery',
+            url: 'https://www.shadowcats.info', 
+            icons: ['https://avatars.githubusercontent.com/u/37784886'] 
+        }
+
+        const modal = createWeb3Modal({
+            ethersConfig: defaultConfig({ 
+                metadata,
+                enableEIP6963: false, 
+                enableInjected: true,
+                enableCoinbase: true, 
+                enableWalletConnect: true,
+                rpcUrl: 'https://cloudflare-eth.com' 
+            }),
+            chains: [mainnet],
+            projectId,
+            enableAnalytics: false,
+            enableOnramp: false,
+            enableSwaps: false,
+            themeMode: 'dark',
+            themeVariables: {
+                '--w3m-accent': '#FFC107',
+                '--w3m-border-radius-master': '1px',
+                '--w3m-z-index': '9999' 
+            }
+        });
+
+        const connectBtn = document.getElementById('connect-btn');
+        const walletSvg = '<svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>';
+        
+        modal.subscribeEvents(event => {
+            if (['MODAL_CLOSE', 'CONNECT_SUCCESS', 'DISCONNECT_SUCCESS'].includes(event.data.event)) {
+                setTimeout(checkAccount, 1000); 
+            }
+        });
+
+        function checkAccount() {
+            try {
+                const isConnected = modal.getIsConnected();
+                const address = modal.getAddress();
+
+                if (isConnected && !address) {
+                    setTimeout(checkAccount, 500);
+                    return;
+                }
+
+                if(isConnected && address) {
+                    const shortAddr = `${address.substring(0,6)}...${address.substring(address.length-4)}`;
+                    connectBtn.innerHTML = `${walletSvg} <span>${shortAddr}</span>`;
+                    window.fetchUserShadowCats(address);
+                } else {
+                    connectBtn.innerHTML = `${walletSvg}`;
+                    window.resetGallery();
+                }
+            } catch (err) {
+                // Ignore silent environment restriction warnings
+            }
+        }
+
+        connectBtn.addEventListener('click', () => {
+            try {
+                modal.open();
+            } catch (err) {}
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') setTimeout(checkAccount, 500);
+        });
+
+        checkAccount();
+    </script>
+
+    <script>
+        const API_KEY = '2756a30474574af39d3228f5b01c1a6a';
+        const TARGET_CONTRACT = '0x67bc96118a8487ea1233a37631d1ffb998a884fa'.toLowerCase(); 
+        
+        const GRID = document.getElementById('grid');
+        const STATUS = document.getElementById('status');
+        const SUB_STATUS = document.getElementById('sub-status');
+        const DETAILS_MODAL = document.getElementById('details-modal');
+        const MODAL_TARGET = document.getElementById('modal-target');
+        const MODAL_CLOSE = document.getElementById('modal-close');
+
+        window.resetGallery = function() {
+            GRID.innerHTML = '';
+            STATUS.textContent = "Accessing Shadow Realm";
+            SUB_STATUS.textContent = "Connect Wallet to view your collection";
+            STATUS.parentElement.style.display = 'block';
+        }
+
+        window.fetchUserShadowCats = async function(ownerAddress) {
+            STATUS.textContent = "Scanning Blockchain...";
+            SUB_STATUS.textContent = "Locating Shadow Cats in wallet...";
+            GRID.innerHTML = '';
+
+            try {
+                const url = `https://api.opensea.io/api/v2/chain/ethereum/account/${ownerAddress}/nfts?limit=100`;
+                const response = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    referrerPolicy: 'no-referrer',
+                    headers: { 
+                        'X-API-KEY': API_KEY, 
+                        'accept': 'application/json' 
+                    }
+                });
+
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+
+                const data = await response.json();
+                
+                const myShadowCats = data.nfts.filter(nft => {
+                    let addr = nft.contract?.address || nft.contract || nft.contract_address;
+                    return addr && addr.toLowerCase() === TARGET_CONTRACT;
+                });
+
+                if (myShadowCats.length === 0) {
+                    STATUS.textContent = "No Shadow Cats Detected";
+                    SUB_STATUS.textContent = "The Shadow Realm is empty for this wallet.";
+                } else {
+                    renderNFTs(myShadowCats);
+                }
+
+            } catch (error) {
+                console.error("Fetch error:", error);
+                STATUS.textContent = "Network Interference";
+                SUB_STATUS.textContent = "Could not sync with the Ethereum network.";
+            }
+        }
+
+        function renderNFTs(nfts) {
+            STATUS.parentElement.style.display = 'none';
+            GRID.innerHTML = '';
+            
+            nfts.forEach(nft => {
+                const card = document.createElement('div');
+                card.className = 'nft-card';
+                card.addEventListener('click', () => openDetailedView(nft));
+
+                const imageUrl = nft.image_url || nft.display_image_url || 'https://via.placeholder.com/400x400/000/FFC107?text=Shadow+Cat';
+                const name = nft.name || `Shadow Cat #${nft.identifier}`;
+
+                card.innerHTML = `
+                    <div class="img-container">
+                        <img src="${imageUrl}" alt="${name}" class="nft-img" loading="lazy">
+                    </div>
+                    <div class="nft-info">
+                        <div class="nft-name">${name}</div>
+                        <div class="nft-id">ID: ${nft.identifier}</div>
+                    </div>
+                `;
+                GRID.appendChild(card);
+            });
+        }
+
+        async function openDetailedView(nftSummary) {
+            DETAILS_MODAL.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            MODAL_TARGET.innerHTML = `<div style="padding:100px; color:#FFC107; text-align:center; width:100%;">Syncing Metadata...</div>`;
+
+            try {
+                const url = `https://api.opensea.io/api/v2/chain/ethereum/contract/${TARGET_CONTRACT}/nfts/${nftSummary.identifier}`;
+                const response = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    referrerPolicy: 'no-referrer',
+                    headers: { 
+                        'X-API-KEY': API_KEY, 
+                        'accept': 'application/json' 
+                    }
+                });
+
+                const data = await response.json();
+                const nft = data.nft;
+                
+                const rank = nft.rarity?.rank || "TBD";
+                const traitsHtml = nft.traits?.length > 0 
+                    ? nft.traits.map(t => `
+                        <div class="trait-box">
+                            <div class="trait-type">${t.trait_type}</div>
+                            <div class="trait-value">${t.value}</div>
+                        </div>
+                    `).join('')
+                    : `<div style="color:#444; font-size:0.8rem;">No data available.</div>`;
+
+                MODAL_TARGET.innerHTML = `
+                    <div class="modal-left">
+                        <img src="${nft.image_url}" class="modal-main-img" alt="${nft.name}">
+                    </div>
+                    <div class="modal-right">
+                        <div class="modal-rank">RARITY RANK: #${rank}</div>
+                        <h2 class="modal-title">${nft.name || 'Shadow Cat'}</h2>
+                        <p class="modal-subtitle">ID: ${nft.identifier}</p>
+                        
+                        <div class="trait-section-title">Genetic Traits</div>
+                        <div class="traits-grid">${traitsHtml}</div>
+                        
+                        <a href="${nft.opensea_url}" target="_blank" class="opensea-link">View Asset on OpenSea</a>
+                    </div>
+                `;
+
+            } catch (error) {
+                console.error("Modal Error:", error);
+                MODAL_TARGET.innerHTML = `<div style="padding:100px; text-align:center; width:100%;">Error manifesting data.</div>`;
+            }
+        }
+
+        function closeModal() {
+            DETAILS_MODAL.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            MODAL_TARGET.innerHTML = '';
+        }
+
+        MODAL_CLOSE.addEventListener('click', closeModal);
+        window.addEventListener('click', (e) => { if(e.target === DETAILS_MODAL) closeModal(); });
+    </script>
+</body>
+</html>

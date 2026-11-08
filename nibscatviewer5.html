@@ -1,0 +1,384 @@
+<!DOCTYPE html> 
+<html lang="en"> 
+    <head> 
+        <meta charset="UTF-8"> 
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+        <title>[[ NIBS_TACTICAL_COMMAND // v3.1 ]]</title>         
+        <link rel="icon" href="https://www.nekron.org/17nibs.png" type="image/gif"> 
+        <script src="https://cdn.tailwindcss.com"></script>         
+        <link rel="preconnect" href="https://fonts.googleapis.com"> 
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> 
+        <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet"> 
+        <style>
+            :root { 
+                --color-terminal-bg: #030a03; 
+                --color-terminal-fg: #27F535;
+                --color-terminal-glow: rgba(39, 245, 53, 0.4);
+            } 
+
+            body { 
+                background-color: var(--color-terminal-bg); 
+                color: var(--color-terminal-fg); 
+                font-family: 'Share Tech Mono', monospace; 
+                overflow-x: hidden;
+            } 
+
+            /* CRT Effect Overlay */
+            .crt::before {
+                content: " ";
+                display: block;
+                position: fixed;
+                top: 0; left: 0; bottom: 0; right: 0;
+                background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                            linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+                z-index: 100;
+                background-size: 100% 3px, 3px 100%;
+                pointer-events: none;
+            }
+
+            .text-glow { 
+                text-shadow: 0 0 10px var(--color-terminal-glow); 
+            } 
+
+            .tactical-border {
+                border: 1px solid var(--color-terminal-fg);
+                position: relative;
+                background: rgba(0, 20, 0, 0.2);
+            }
+
+            .corner-clip {
+                position: absolute;
+                width: 15px;
+                height: 15px;
+                border: 2px solid var(--color-terminal-fg);
+                z-index: 10;
+            }
+
+            .c-tl { top: -2px; left: -2px; border-right: 0; border-bottom: 0; }
+            .c-tr { top: -2px; right: -2px; border-left: 0; border-bottom: 0; }
+            .c-bl { bottom: -2px; left: -2px; border-right: 0; border-top: 0; }
+            .c-br { bottom: -2px; right: -2px; border-left: 0; border-top: 0; }
+
+            .scanline { 
+                width: 100%; 
+                height: 4px; 
+                z-index: 99; 
+                background: rgba(39, 245, 53, 0.1); 
+                position: fixed; 
+                bottom: 100%; 
+                pointer-events: none;
+                animation: scan 8s linear infinite; 
+            } 
+
+            @keyframes scan { 
+                0% { top: 0%; }  
+                100% { top: 100%; } 
+            }
+
+            .sidebar-title {
+                background: var(--color-terminal-fg);
+                color: black;
+                font-weight: bold;
+                padding: 2px 8px;
+                font-size: 12px;
+                display: inline-block;
+                margin-bottom: 10px;
+            }
+
+            .nft-card {
+                background: rgba(0, 0, 0, 0.6);
+                border: 1px solid rgba(39, 245, 53, 0.3);
+                transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+
+            .nft-card:hover {
+                border-color: var(--color-terminal-fg);
+                box-shadow: 0 0 15px var(--color-terminal-glow);
+                transform: scale(1.03);
+            }
+
+            .btn-action {
+                background: transparent;
+                border: 1px solid var(--color-terminal-fg);
+                padding: 10px;
+                transition: all 0.2s;
+                text-align: center;
+                cursor: pointer;
+            }
+
+            .btn-action:hover {
+                background: rgba(39, 245, 53, 0.1);
+                box-shadow: inset 0 0 10px var(--color-terminal-glow);
+            }
+
+            ::-webkit-scrollbar { width: 4px; }
+            ::-webkit-scrollbar-thumb { background: var(--color-terminal-fg); }
+        </style>         
+    </head>     
+    <body class="crt"> 
+        <div class="scanline"></div>
+
+        <!-- TOP UI BAR -->
+        <div class="fixed top-0 left-0 w-full bg-black/90 border-b border-green-900 flex justify-between items-center px-4 py-1 z-[110] text-[10px] tracking-tighter">
+            <div class="flex items-center space-x-4">
+                <span class="animate-pulse">● LIVE_FEED</span>
+                <span class="opacity-50">STATION: NIBS_COMMAND_CENTER</span>
+                <span class="opacity-50">OS: v3.1.2</span>
+            </div>
+            <div class="flex items-center space-x-6">
+                <div class="flex space-x-2">
+                    <a href="https://www.nekron.org/" target="_blank"><img src="https://www.nekron.org/hawk.png" alt="H" class="h-3 hover:scale-110"></a> 
+                    <a href="https://www.nekron.org/vec"><img src="https://www.nekron.org/squid.gif" alt="S" class="h-3 hover:scale-110"></a> 
+                    <a href="https://www.nekron.org/wavenabber"><img src="https://www.nekron.org/ggsm.png" alt="G" class="h-3 hover:scale-110"></a> 
+                    <a href="https://www.nekron.org/radar.html"><img src="https://www.nekron.org/moths.png" alt="M" class="h-3 hover:scale-110"></a> 
+                </div>
+                <div id="uptime" class="font-bold">00:00:00</div>
+            </div>
+        </div>
+
+        <div class="container mx-auto mt-10 p-4">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                
+                <!-- LEFT PANEL: STATUS & CONFIG -->
+                <div class="lg:col-span-2 space-y-4">
+                    <div class="tactical-border p-4">
+                        <div class="corner-clip c-tl"></div><div class="corner-clip c-tr"></div>
+                        <div class="corner-clip c-bl"></div><div class="corner-clip c-br"></div>
+                        <div class="sidebar-title">SYSTEM_STATUS</div>
+                        <div class="space-y-2 text-[10px]">
+                            <div class="flex justify-between"><span>LINK:</span> <span id="connState" class="text-red-500">OFFLINE</span></div>
+                            <div class="flex justify-between flex-wrap"><span class="w-full">ADDR:</span> <span id="userAddr" class="opacity-50 truncate">NOT_SET</span></div>
+                            <div class="flex justify-between"><span>FREQ:</span> <span class="opacity-50">8453_BASE</span></div>
+                        </div>
+                        <div class="mt-4 space-y-2">
+                            <button id="connectBtn" class="btn-action w-full text-[10px] font-bold">[ INITIALIZE ]</button>
+                            <button id="refreshBtn" class="btn-action w-full text-[10px] font-bold hidden">[ RESYNC ]</button>
+                        </div>
+                    </div>
+
+                    <div class="tactical-border p-4 hidden lg:block">
+                        <div class="sidebar-title">SUBJECT_DATA</div>
+                        <img src="https://www.nekron.org/pics/nibspic.jpg" class="w-full h-auto border border-green-900 mb-2">
+                        <p class="text-[9px] opacity-70">
+                            IDENTITY: NIBS<br>
+                            CLASS: FELINE_DIGITAL<br>
+                            NETWORK: BASE_MAINNET<br>
+                            ASSETS: 1000_TOTAL
+                        </p>
+                    </div>
+                </div>
+
+                <!-- MAIN PANEL: ASSET VIEWPORT -->
+                <div class="lg:col-span-8 space-y-4">
+                    <div class="tactical-border p-4 min-h-[70vh]">
+                        <div class="corner-clip c-tl"></div><div class="corner-clip c-tr"></div>
+                        <div class="corner-clip c-bl"></div><div class="corner-clip c-br"></div>
+                        
+                        <div class="flex justify-between items-center mb-6 border-b border-green-900 pb-2">
+                            <h1 class="text-2xl font-black tracking-widest text-glow flex items-center">
+                                <img src="https://www.nekron.org/17Nibs.png" class="h-8 mr-2"> NIBS_TACTICAL_GRID
+                            </h1>
+                            <div id="assetCount" class="text-[10px] bg-green-900/30 px-2 py-1">ASSETS: 0</div>
+                        </div>
+
+                        <p id="statusMsg" class="text-[11px] mb-4 text-center bg-black/50 py-1 border border-green-900/30">
+                            &gt; TERMINAL_READY: Awaiting user authentication sequence.
+                        </p>
+
+                        <div id="gallery" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <!-- Asset materialized here -->
+                            <div class="col-span-full py-20 flex flex-col items-center justify-center opacity-20">
+                                <div class="text-4xl mb-2">[-]</div>
+                                <div class="text-xs uppercase tracking-widest">Viewport_Empty</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT PANEL: NEURAL LOG -->
+                <div class="lg:col-span-2">
+                    <div class="tactical-border p-4 h-full min-h-[300px] flex flex-col">
+                        <div class="corner-clip c-tl"></div><div class="corner-clip c-tr"></div>
+                        <div class="corner-clip c-bl"></div><div class="corner-clip c-br"></div>
+                        <div class="sidebar-title">NEURAL_LOG</div>
+                        <div id="terminalLog" class="flex-grow overflow-y-auto text-[8px] space-y-1 font-mono leading-tight">
+                            <div class="text-green-900">&gt; Kernel v3.1 initialized.</div>
+                            <div class="text-green-900">&gt; Graphics buffer active.</div>
+                            <div class="text-green-800">&gt; Awaiting neural uplink...</div>
+                        </div>
+                        <div class="mt-2 pt-2 border-t border-green-900 text-[8px] opacity-40">
+                            PROX_SCAN: <span id="proxScan">STABLE</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>         
+        <script>
+    const ALCHEMY_API_KEY = "1zmVV0SiN9HH3L4L6pDEj"; 
+    const CONTRACT_ADDRESS = "0x59c4b53CaC4dF4de93ADA559368434440590cdd2"; 
+    const CHAIN_ID = 8453; 
+    
+    let provider;
+    let signer;
+    let currentUserAddress = null;
+
+    function logTerminal(msg, type = 'SYS') {
+        const log = document.getElementById("terminalLog");
+        const entry = document.createElement("div");
+        const timestamp = new Date().toLocaleTimeString('en-GB', { hour12: false });
+        
+        let color = "text-green-700";
+        if (type === 'ERR') color = "text-red-500";
+        if (type === 'OK') color = "text-blue-400";
+        if (type === 'USER') color = "text-white opacity-80";
+
+        entry.className = color;
+        entry.innerHTML = `[${timestamp}] ${msg}`;
+        log.appendChild(entry);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function updateUptime() {
+        const start = Date.now();
+        setInterval(() => {
+            const diff = Math.floor((Date.now() - start) / 1000);
+            const h = Math.floor(diff / 3600).toString().padStart(2, '0');
+            const m = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
+            const s = (diff % 60).toString().padStart(2, '0');
+            document.getElementById("uptime").innerText = `${h}:${m}:${s}`;
+            
+            // Random prox scan change
+            if (Math.random() > 0.95) {
+                document.getElementById("proxScan").innerText = Math.random() > 0.5 ? "STABLE" : "FLUCTUATING";
+            }
+        }, 1000);
+    }
+
+    function resolveIPFS(url) {
+        if (url && url.startsWith("ipfs://")) return url.replace("ipfs://", "https://ipfs.io/ipfs/"); 
+        return url;
+    }
+
+    async function connectWallet() {
+        const status = document.getElementById("statusMsg");
+        const btn = document.getElementById("connectBtn");
+        const connState = document.getElementById("connState");
+
+        if (!window.ethereum) {
+            logTerminal("CRITICAL: NO_PROVIDER_DETECTED", "ERR");
+            status.innerText = "> FATAL: Browser lacks ethereum injection.";
+            return;
+        }
+
+        try {
+            logTerminal("Initiating handshake...", "USER");
+            provider = new ethers.BrowserProvider(window.ethereum);
+            
+            const network = await provider.getNetwork();
+            if (Number(network.chainId) !== CHAIN_ID) {
+                logTerminal("WRONG_CHAIN: Attempting switch to 8453...", "SYS");
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: ethers.toBeHex(CHAIN_ID) }],
+                });
+                provider = new ethers.BrowserProvider(window.ethereum);
+            }
+
+            signer = await provider.getSigner();
+            const address = await signer.getAddress();
+            currentUserAddress = address;
+
+            logTerminal(`Authorized: ${address.substring(0,10)}...`, "OK");
+            
+            connState.innerText = "ONLINE";
+            connState.classList.replace('text-red-500', 'text-blue-400');
+            document.getElementById("userAddr").innerText = `${address.substring(0,6)}...${address.substring(38)}`;
+            btn.innerText = "[ ACCESS_GRANTED ]";
+            document.getElementById("refreshBtn").classList.remove('hidden');
+            
+            fetchNFTs(address);
+
+        } catch (error) {
+            logTerminal(`ERROR: ${error.message.substring(0,30)}`, "ERR");
+            status.innerText = `> ACCESS_DENIED: ${error.message}`;
+        }
+    }
+
+    async function fetchNFTs(ownerAddress) {
+        const gallery = document.getElementById("gallery");
+        const status = document.getElementById("statusMsg");
+        gallery.innerHTML = '<div class="col-span-full py-20 text-center animate-pulse">SCANNING_DATA_STREAM...</div>'; 
+        
+        const url = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${ownerAddress}&contractAddresses[]=${CONTRACT_ADDRESS}`;
+        
+        try {
+            logTerminal("Executing contract sweep...", "SYS");
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.error) throw new Error(data.error.message);
+
+            const nfts = data.ownedNfts;
+            document.getElementById("assetCount").innerText = `ASSETS: ${nfts.length}`;
+            
+            if (!nfts || nfts.length === 0) {
+                status.innerText = "> SEARCH_COMPLETE: 0 assets located in current sector.";
+                gallery.innerHTML = '<div class="col-span-full text-center py-20 opacity-30">NO_ASSETS_DETECTED</div>';
+                return;
+            }
+
+            logTerminal(`Decrypted ${nfts.length} cat files.`, "OK");
+            status.innerText = `> VIEWPORT_SYNCED: ${nfts.length} records found.`;
+            gallery.innerHTML = "";
+
+            nfts.forEach(nft => {
+                const id = parseInt(nft.id.tokenId, 16);
+                const title = nft.title || `Nib Cat #${id}`;
+                const img = resolveIPFS(nft.media[0]?.gateway || nft.media[0]?.raw); 
+
+                if (img) {
+                    const card = document.createElement('div');
+                    card.className = 'nft-card p-2 rounded';
+                    
+                    const traits = nft.metadata?.attributes || [];
+                    let tHtml = '<div class="grid grid-cols-2 gap-1 mt-2">';
+                    traits.slice(0, 4).forEach(t => {
+                        tHtml += `<div class="text-[8px] bg-green-900/10 p-1 border border-green-900/20">
+                            <span class="opacity-50">${t.trait_type}:</span><br>${t.value}
+                        </div>`;
+                    });
+                    tHtml += '</div>';
+
+                    card.innerHTML = `
+                        <img src="${img}" alt="${title}" class="w-full h-auto border border-green-900 shadow-lg">
+                        <div class="mt-2">
+                            <div class="text-[10px] font-bold truncate">${title}</div>
+                            <div class="text-[8px] opacity-40">TAG: 0x${nft.id.tokenId.substring(2,10)}...</div>
+                            ${tHtml}
+                        </div>
+                    `;
+                    gallery.appendChild(card);
+                }
+            });
+
+        } catch (error) {
+            logTerminal(`FETCH_ERR: ${error.message}`, "ERR");
+            status.innerText = `> COMMS_ERR: ${error.message}`;
+        }
+    }
+
+    window.onload = () => {
+        updateUptime();
+        document.getElementById("connectBtn").addEventListener('click', connectWallet);
+        document.getElementById("refreshBtn").addEventListener('click', () => fetchNFTs(currentUserAddress));
+        
+        if (window.ethereum) {
+             window.ethereum.on('accountsChanged', () => window.location.reload());
+        }
+    };
+</script>         
+    </body>     
+</html>

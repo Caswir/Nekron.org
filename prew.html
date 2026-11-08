@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GreenSignal — Free AI Crypto Predictions</title>
+<style>
+  :root {
+    --bg: #000000;
+    --panel: #060a06;
+    --border: #0f3d1a;
+    --green: #00ff66;
+    --green-dim: #00b347;
+    --green-faint: #0a2a14;
+    --text: #a8ffc8;
+    --red: #ff4d4d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+    line-height: 1.6;
+  }
+  a { color: var(--green); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Header */
+  header {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1rem 2rem;
+    background: rgba(0,0,0,0.9);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(6px);
+  }
+  .logo { font-size: 1.3rem; font-weight: 700; color: var(--green); letter-spacing: 0.1em; }
+  .logo::before { content: "▮ "; animation: blink 1.2s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  nav a { margin-left: 1.5rem; font-size: 0.9rem; text-transform: uppercase; }
+
+  /* Hero */
+  .hero {
+    text-align: center;
+    padding: 5rem 2rem 3rem;
+    background:
+      radial-gradient(ellipse at center, rgba(0,255,102,0.08) 0%, transparent 70%),
+      repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,255,102,0.03) 2px 4px);
+  }
+  .hero h1 { font-size: clamp(2rem, 5vw, 3.5rem); color: var(--green); text-shadow: 0 0 20px rgba(0,255,102,0.5); }
+  .hero p { max-width: 640px; margin: 1rem auto 2rem; color: var(--text); }
+  .badge {
+    display: inline-block; padding: 0.3rem 0.8rem; margin-bottom: 1rem;
+    border: 1px solid var(--green); border-radius: 2px;
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--green);
+  }
+  .btn {
+    display: inline-block; padding: 0.8rem 2rem;
+    background: var(--green); color: #000; font-weight: 700;
+    border: none; cursor: pointer; font-family: inherit;
+    box-shadow: 0 0 20px rgba(0,255,102,0.4);
+    transition: transform 0.1s, box-shadow 0.2s;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 0 30px rgba(0,255,102,0.7); text-decoration: none; }
+  .btn.ghost { background: transparent; color: var(--green); border: 1px solid var(--green); box-shadow: none; margin-left: 1rem; }
+
+  /* Layout */
+  section { padding: 3rem 2rem; max-width: 1200px; margin: 0 auto; }
+  h2 { color: var(--green); font-size: 1.4rem; margin-bottom: 1.5rem; border-left: 3px solid var(--green); padding-left: 0.8rem; }
+  .grid { display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 1.2rem;
+    position: relative;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .card:hover { border-color: var(--green-dim); box-shadow: 0 0 15px rgba(0,255,102,0.15); }
+  .card h3 { color: var(--green); font-size: 1.1rem; margin-bottom: 0.4rem; }
+  .muted { color: var(--green-dim); font-size: 0.8rem; }
+
+  /* Prediction cards */
+  .signal { font-size: 1.6rem; font-weight: 700; margin: 0.4rem 0; }
+  .signal.up { color: var(--green); }
+  .signal.down { color: var(--red); }
+  .confidence { height: 6px; background: var(--green-faint); margin: 0.6rem 0; }
+  .confidence span { display: block; height: 100%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .tags { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.6rem; }
+  .tag { font-size: 0.7rem; padding: 0.15rem 0.5rem; border: 1px solid var(--border); color: var(--green-dim); }
+
+  /* Chart */
+  .chart-wrap { background: var(--panel); border: 1px solid var(--border); padding: 1rem; }
+  canvas { width: 100%; height: 280px; display: block; }
+  .chart-controls { display: flex; gap: 0.5rem; margin-bottom: 0.8rem; }
+  .chart-controls button {
+    background: transparent; color: var(--green-dim); border: 1px solid var(--border);
+    padding: 0.3rem 0.8rem; cursor: pointer; font-family: inherit; font-size: 0.8rem;
+  }
+  .chart-controls button.active { color: #000; background: var(--green); border-color: var(--green); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { text-align: left; padding: 0.7rem 0.6rem; border-bottom: 1px solid var(--border); }
+  th { color: var(--green); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.1em; }
+  tr:hover td { background: rgba(0,255,102,0.04); }
+  .buy { color: var(--green); } .sell { color: var(--red); }
+
+  /* News feed */
+  .news-item { padding: 0.8rem 0; border-bottom: 1px dashed var(--border); }
+  .news-item .sentiment { float: right; font-size: 0.75rem; }
+  .pos { color: var(--green); } .neg { color: var(--red); } .neu { color: var(--green-dim); }
+
+  /* Signup */
+  .signup { text-align: center; background: var(--panel); border: 1px solid var(--border); padding: 2.5rem; }
+  .signup form { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem; flex-wrap: wrap; }
+  input[type=email] {
+    background: #000; border: 1px solid var(--green-dim); color: var(--green);
+    padding: 0.8rem 1rem; font-family: inherit; min-width: 280px;
+  }
+  input[type=email]:focus { outline: none; border-color: var(--green); box-shadow: 0 0 10px rgba(0,255,102,0.4); }
+
+  footer {
+    text-align: center; padding: 2rem; font-size: 0.75rem;
+    border-top: 1px solid var(--border); color: var(--green-dim);
+  }
+  .disclaimer { max-width: 800px; margin: 0.5rem auto 0; }
+  @media (max-width: 600px) { nav { display: none; } .btn.ghost { margin: 0.8rem 0 0; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">GREENSIGNAL</div>
+  <nav>
+    <a href="#predictions">Predictions</a>
+    <a href="#charts">Charts</a>
+    <a href="#politicians">Politicians</a>
+    <a href="#news">News</a>
+    <a href="#signup">Alerts</a>
+  </nav>
+</header>
+
+<div class="hero">
+  <div class="badge">100% Free · No Account Required</div>
+  <h1>AI Crypto Predictions<br>From Signals Most Traders Miss</h1>
+  <p>Our models scan breaking news, on-chain and price data, and publicly disclosed trades by politicians to generate daily directional calls on major cryptocurrencies.</p>
+  <a href="#predictions" class="btn">View Today's Signals</a>
+  <a href="#signup" class="btn ghost">Get Free Alerts</a>
+</div>
+
+<section id="predictions">
+  <h2>Today's AI Predictions <span class="muted" id="updated"></span></h2>
+  <div class="grid" id="prediction-grid"></div>
+</section>
+
+<section id="charts">
+  <h2>Price &amp; Signal Chart</h2>
+  <div class="chart-wrap">
+    <div class="chart-controls" id="chart-controls"></div>
+    <canvas id="chart" width="1100" height="280"></canvas>
+    <p class="muted" style="margin-top:0.6rem">Solid line: price · Dashed line: AI 7-day projection</p>
+  </div>
+</section>
+
+<section id="politicians">
+  <h2>Politician Money Movements</h2>
+  <p class="muted" style="margin-bottom:1rem">Sourced from public financial disclosure filings. Large or clustered moves feed into the model as a sentiment signal.</p>
+  <div class="card" style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Date Filed</th><th>Official</th><th>Asset</th><th>Action</th><th>Range</th><th>Model Weight</th></tr></thead>
+      <tbody id="pol-table"></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="news">
+  <h2>News Sentiment Feed</h2>
+  <div class="card" id="news-feed"></div>
+</section>
+
+<section id="signup">
+  <div class="signup">
+    <h2 style="border:none;padding:0;display:inline-block">Daily Signals, Straight to Your Inbox</h2>
+    <p class="muted">Free forever. One email per day. Unsubscribe anytime.</p>
+    <form onsubmit="event.preventDefault(); alert('Subscribed! (connect this form to your mailing provider)');">
+      <input type="email" placeholder="you@example.com" required>
+      <button class="btn" type="submit">Subscribe</button>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <div>© 2026 GreenSignal · Built on open data</div>
+  <p class="disclaimer">GreenSignal is an informational tool, not financial advice. AI predictions are probabilistic and can be wrong. Cryptocurrency is volatile; never invest more than you can afford to lose. Politician trade data reflects public disclosures, which may be filed weeks after the transaction.</p>
+</footer>
+
+<script>
+/* ============================================================
+   SAMPLE DATA — replace with live API calls:
+   - Prices:      CoinGecko / Binance public APIs
+   - News:        CryptoPanic, NewsAPI, or RSS feeds
+   - Politicians: Quiver Quantitative / Capitol Trades / House & Senate disclosure PDFs
+   - Predictions: your own model endpoint
+   ============================================================ */
+
+const predictions = [
+  { coin: "Bitcoin",  ticker: "BTC", dir: "up",   target: "+4.2%", conf: 78, drivers: ["ETF inflows", "Positive news", "2 House buys"] },
+  { coin: "Ethereum", ticker: "ETH", dir: "up",   target: "+2.9%", conf: 66, drivers: ["Staking growth", "Neutral news"] },
+  { coin: "Solana",   ticker: "SOL", dir: "down", target: "-3.1%", conf: 61, drivers: ["Whale outflows", "Senate sell"] },
+  { coin: "XRP",      ticker: "XRP", dir: "up",   target: "+1.8%", conf: 54, drivers: ["Regulatory headline"] },
+  { coin: "Dogecoin", ticker: "DOGE",dir: "down", target: "-2.4%", conf: 58, drivers: ["Social volume drop"] },
+  { coin: "Cardano",  ticker: "ADA", dir: "up",   target: "+1.2%", conf: 51, drivers: ["Dev activity"] },
+];
+
+const politicianTrades = [
+  { date: "2026-10-12", name: "Rep. J. Example (D-CA)", asset: "BTC ETF", action: "BUY",  range: "$50K–$100K", weight: "High" },
+  { date: "2026-10-11", name: "Sen. A. Sample (R-TX)",  asset: "ETH",     action: "BUY",  range: "$15K–$50K",  weight: "Medium" },
+  { date: "2026-10-09", name: "Rep. M. Placeholder (R-FL)", asset: "SOL", action: "SELL", range: "$100K–$250K", weight: "High" },
+  { date: "2026-10-08", name: "Rep. K. Demo (D-NY)",     asset: "COIN stock", action: "BUY", range: "$1K–$15K", weight: "Low" },
+  { date: "2026-10-06", name: "Sen. R. Test (D-WA)",     asset: "BTC ETF", action: "BUY",  range: "$15K–$50K",  weight: "Medium" },
+];
+
+const news = [
+  { t: "Spot Bitcoin ETFs record third straight week of net inflows", s: "pos" },
+  { t: "Regulator signals clearer stablecoin framework by year end", s: "pos" },
+  { t: "Large Solana wallet moves 1.2M SOL to exchange", s: "neg" },
+  { t: "Ethereum validator count crosses new high", s: "pos" },
+  { t: "Congressional hearing on crypto taxation scheduled", s: "neu" },
+  { t: "Meme-coin trading volume falls 18% week over week", s: "neg" },
+];
+
+// Fake price history + projection per coin (replace with real series)
+function genSeries(base, vol, drift) {
+  const hist = [], proj = [];
+  let p = base;
+  for (let i = 0; i < 30; i++) { p *= 1 + (Math.random() - 0.5) * vol; hist.push(p); }
+  let q = p;
+  for (let i = 0; i < 7; i++) { q *= 1 + drift / 7 + (Math.random() - 0.5) * vol * 0.4; proj.push(q); }
+  return { hist, proj };
+}
+const chartData = {
+  BTC: genSeries(100, 0.04,  0.042),
+  ETH: genSeries(100, 0.05,  0.029),
+  SOL: genSeries(100, 0.07, -0.031),
+  XRP: genSeries(100, 0.06,  0.018),
+};
+
+/* ---------- Render predictions ---------- */
+document.getElementById("updated").textContent = "— updated " + new Date().toLocaleString();
+document.getElementById("prediction-grid").innerHTML = predictions.map(p => `
+  <div class="card">
+    <h3>${p.coin} <span class="muted">${p.ticker}</span></h3>
+    <div class="signal ${p.dir}">${p.dir === "up" ? "▲" : "▼"} ${p.target}</div>
+    <div class="muted">24h outlook · confidence ${p.conf}%</div>
+    <div class="confidence"><span style="width:${p.conf}%"></span></div>
+    <div class="tags">${p.drivers.map(d => `<span class="tag">${d}</span>`).join("")}</div>
+  </div>`).join("");
+
+/* ---------- Render politician table ---------- */
+document.getElementById("pol-table").innerHTML = politicianTrades.map(t => `
+  <tr>
+    <td>${t.date}</td><td>${t.name}</td><td>${t.asset}</td>
+    <td class="${t.action === "BUY" ? "buy" : "sell"}">${t.action}</td>
+    <td>${t.range}</td><td>${t.weight}</td>
+  </tr>`).join("");
+
+/* ---------- Render news ---------- */
+const label = { pos: "BULLISH", neg: "BEARISH", neu: "NEUTRAL" };
+document.getElementById("news-feed").innerHTML = news.map(n => `
+  <div class="news-item"><span class="sentiment ${n.s}">${label[n.s]}</span>${n.t}</div>`).join("");
+
+/* ---------- Chart ---------- */
+const canvas = document.getElementById("chart");
+const ctx = canvas.getContext("2d");
+function drawChart(sym) {
+  const { hist, proj } = chartData[sym];
+  const all = hist.concat(proj);
+  const W = canvas.width, H = canvas.height, pad = 30;
+  const min = Math.min(...all), max = Math.max(...all);
+  const x = i => pad + (i / (all.length - 1)) * (W - pad * 2);
+  const y = v => H - pad - ((v - min) / (max - min)) * (H - pad * 2);
+
+  ctx.clearRect(0, 0, W, H);
+  // grid
+  ctx.strokeStyle = "#0f3d1a"; ctx.lineWidth = 1;
+  for (let g = 0; g <= 4; g++) { const gy = pad + g * (H - pad * 2) / 4; ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(W - pad, gy); ctx.stroke(); }
+  // history
+  ctx.strokeStyle = "#00ff66"; ctx.lineWidth = 2; ctx.shadowColor = "#00ff66"; ctx.shadowBlur = 8;
+  ctx.beginPath(); hist.forEach((v, i) => i ? ctx.lineTo(x(i), y(v)) : ctx.moveTo(x(i), y(v))); ctx.stroke();
+  // projection
+  ctx.setLineDash([6, 6]); ctx.strokeStyle = proj[proj.length - 1] >= hist[hist.length - 1] ? "#00ff66" : "#ff4d4d";
+  ctx.beginPath(); ctx.moveTo(x(hist.length - 1), y(hist[hist.length - 1]));
+  proj.forEach((v, i) => ctx.lineTo(x(hist.length + i), y(v))); ctx.stroke();
+  ctx.setLineDash([]); ctx.shadowBlur = 0;
+  // label
+  ctx.fillStyle = "#00ff66"; ctx.font = "14px monospace"; ctx.fillText(sym + " / USD (indexed)", pad, 18);
+}
+const controls = document.getElementById("chart-controls");
+Object.keys(chartData).forEach((sym, i) => {
+  const b = document.createElement("button");
+  b.textContent = sym; if (i === 0) b.classList.add("active");
+  b.onclick = () => { controls.querySelectorAll("button").forEach(x => x.classList.remove("active")); b.classList.add("active"); drawChart(sym); };
+  controls.appendChild(b);
+});
+drawChart("BTC");
+</script>
+</body>
+</html>

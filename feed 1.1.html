@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DUNE // NEKRON.ORG FEED</title>
+    <!-- Tailwind CSS for utility layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --hacker-green: #00ff41;
+            --hacker-dark: #0a0a0a;
+            --hacker-glow: rgba(0, 255, 65, 0.3);
+        }
+
+        body {
+            background-color: #000;
+            color: var(--hacker-green);
+            font-family: 'Courier New', Courier, monospace;
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+
+        /* Main Container with Bold Green Border */
+        .terminal-container {
+            width: 100%;
+            max-width: 1000px;
+            border: 6px solid var(--hacker-green);
+            background-color: var(--hacker-dark);
+            box-shadow: 0 0 30px var(--hacker-glow);
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden; /* Ensure grid stays inside */
+        }
+
+        /* Grid Background Effect - now constrained to the container */
+        .grid-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Scanline animation over the grid */
+        .grid-overlay::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%,
+                rgba(0, 0, 0, 0.2) 50%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+
+        /* Content needs to be above the grid */
+        .content-wrapper {
+            position: relative;
+            z-index: 1;
+        }
+
+        .header-section {
+            border-bottom: 2px solid var(--hacker-green);
+            padding-bottom: 1rem;
+            margin-bottom: 2rem;
+            background: rgba(10, 10, 10, 0.8);
+        }
+
+        .glitch-text {
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px var(--hacker-glow);
+        }
+
+        /* News Item Styling */
+        .feed-item {
+            border: 1px solid var(--hacker-green);
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            background: rgba(0, 20, 0, 0.6);
+            backdrop-filter: blur(2px);
+        }
+
+        .feed-item:hover {
+            background-color: var(--hacker-green);
+            color: black;
+            box-shadow: 0 0 15px var(--hacker-green);
+        }
+
+        .feed-item a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .feed-item .meta {
+            font-size: 0.75rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.8;
+        }
+
+        /* Loading Spinner */
+        .loader {
+            border: 4px solid rgba(0, 255, 65, 0.1);
+            border-left: 4px solid var(--hacker-green);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 640px) {
+            .terminal-container {
+                border-width: 3px;
+                padding: 1rem;
+            }
+            .glitch-text {
+                font-size: 1.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="terminal-container">
+        <!-- The grid is now inside the container -->
+        <div class="grid-overlay"></div>
+
+        <div class="content-wrapper">
+            <div class="header-section">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 text-xs">
+                    <span>LOCAL_HOST: nekron.org</span>
+                    <span>DATA_STREAM: [DUNE_EXPERIMENT]</span>
+                    <span id="system-time"></span>
+                </div>
+                <h1 class="glitch-text text-2xl md:text-4xl">> DEEP UNDERGROUND NEUTRINO EXPERIMENT</h1>
+                <p class="mt-2 text-sm opacity-70">Detecting ghost particles 1,480 meters underground.</p>
+            </div>
+
+            <div id="status-msg" class="mb-4 text-sm animate-pulse">Initializing decryption protocols...</div>
+
+            <div id="rss-feed" class="space-y-4">
+                <!-- Loading state -->
+                <div class="flex flex-col items-center justify-center py-20">
+                    <div class="loader mb-4"></div>
+                    <p>UPLINKING TO FERMILAB...</p>
+                </div>
+            </div>
+
+            <div class="footer mt-10 pt-4 border-t border-green-900 text-center text-xs opacity-50">
+                SYSTEM END / AUTH: NEKRON_ADMIN
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // System Time Update
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('system-time').innerText = `TIMESTAMP: ${now.toISOString()}`;
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Fetch DUNE RSS Feed via multiple CORS proxies with raw XML parsing
+        const DUNE_FEED_URL = "https://news.fnal.gov/tag/dune/feed/";
+
+        // Each proxy returns the raw RSS XML as plain text
+        const PROXIES = [
+            xml => `https://api.allorigins.win/raw?url=${encodeURIComponent(xml)}`,
+            xml => `https://corsproxy.io/?${encodeURIComponent(xml)}`,
+            xml => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(xml)}`
+        ];
+
+        async function fetchRawXML() {
+            for (const makeUrl of PROXIES) {
+                try {
+                    const res = await fetch(makeUrl(DUNE_FEED_URL));
+                    if (!res.ok) continue;
+                    const text = await res.text();
+                    // Must look like RSS — reject HTML error pages
+                    if (text.trim().startsWith("<") && (text.includes("<rss") || text.includes("<feed"))) {
+                        return text;
+                    }
+                } catch (e) { /* try next proxy */ }
+            }
+            throw new Error("All proxies failed — check network or try again later");
+        }
+
+        function getText(item, ...tags) {
+            for (const tag of tags) {
+                const el = item.getElementsByTagName(tag)[0]
+                        || item.getElementsByTagName("dc:" + tag)[0];
+                if (el && el.textContent.trim()) return el.textContent.trim();
+            }
+            return "";
+        }
+
+        function parseRSS(xmlString) {
+            // Strip any leading BOM or whitespace before the XML declaration
+            const clean = xmlString.replace(/^\s+/, '').replace(/^\uFEFF/, '');
+            const parser = new DOMParser();
+            const xml = parser.parseFromString(clean, "text/xml");
+
+            const parseErr = xml.getElementsByTagName("parsererror")[0];
+            if (parseErr) throw new Error("Bad XML from proxy: " + parseErr.textContent.trim().substring(0, 120));
+
+            const items = Array.from(xml.getElementsByTagName("item"));
+            if (!items.length) throw new Error("Feed returned 0 articles");
+
+            return items.map(item => {
+                // <link> in RSS 2.0 is a text node — textContent works most of the time,
+                // but fall back to <guid> if empty
+                const linkRaw = getText(item, "link");
+                const link = (linkRaw && linkRaw.startsWith("http"))
+                    ? linkRaw
+                    : getText(item, "guid") || "#";
+
+                return {
+                    title:       getText(item, "title")              || "UNTITLED",
+                    link,
+                    pubDate:     getText(item, "pubDate"),
+                    author:      getText(item, "creator", "author")  || "FERMILAB",
+                    description: getText(item, "description")        || ""
+                };
+            });
+        }
+
+        function renderItems(items) {
+            const feedContainer = document.getElementById('rss-feed');
+            const statusMsg    = document.getElementById('status-msg');
+
+            feedContainer.innerHTML = '';
+            statusMsg.classList.remove('animate-pulse');
+            statusMsg.innerText = `>> SUCCESS: ${items.length} PACKETS RECEIVED FROM DUNE_SOURCE`;
+
+            items.forEach(item => {
+                const article = document.createElement('div');
+                article.className = 'feed-item group';
+
+                const pubDate = item.pubDate
+                    ? new Date(item.pubDate).toLocaleDateString(undefined, {
+                        year: 'numeric', month: 'short', day: 'numeric'
+                      })
+                    : "UNKNOWN";
+
+                const snippet = item.description
+                    .replace(/<[^>]*>?/gm, '')
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .substring(0, 180) + "…";
+
+                const hexId = Math.floor(Math.random() * 16777215)
+                    .toString(16).padStart(6, '0').toUpperCase();
+
+                article.innerHTML = `
+                    <div class="meta">
+                        [ID: 0x${hexId}]
+                        [DATE: ${pubDate}]
+                        [BY: ${item.author}]
+                    </div>
+                    <h2 class="text-xl font-bold mb-2">
+                        <a href="${item.link}" target="_blank">${item.title}</a>
+                    </h2>
+                    <p class="text-sm leading-relaxed opacity-90">${snippet}</p>
+                    <div class="mt-4 text-xs font-bold underline">READ_FULL_LOG -></div>
+                `;
+                article.onclick = () => window.open(item.link, '_blank');
+                feedContainer.appendChild(article);
+            });
+        }
+
+        async function loadFeed() {
+            const feedContainer = document.getElementById('rss-feed');
+            const statusMsg    = document.getElementById('status-msg');
+
+            statusMsg.innerText = ">> ESTABLISHING SECURE UPLINK TO FERMILAB...";
+            feedContainer.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-20">
+                    <div class="loader mb-4"></div>
+                    <p>UPLINKING TO FERMILAB...</p>
+                </div>`;
+
+            try {
+                const xml   = await fetchRawXML();
+                const items = parseRSS(xml);
+                renderItems(items.slice(0, 5));
+            } catch (error) {
+                console.error('Feed error:', error);
+                statusMsg.classList.remove('animate-pulse');
+                statusMsg.innerText = ">> ERROR: UPLINK FAILED.";
+                feedContainer.innerHTML = `
+                    <div class="border border-red-500 p-6 text-red-500 bg-red-900 bg-opacity-10">
+                        <h3 class="font-bold">> CONNECTION_TIMEOUT</h3>
+                        <p class="mt-2 text-sm">The secure handshake with Fermilab news servers failed.<br>
+                        <span class="opacity-60">REASON: ${error.message}</span></p>
+                        <button onclick="loadFeed()" class="mt-4 border border-red-500 px-4 py-2 hover:bg-red-500 hover:text-black transition-colors">
+                            RE-ESTABLISH UPLINK
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        window.onload = loadFeed;
+    </script>
+</body>
+</html>

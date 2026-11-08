@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nibs Cat JSON Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background: #0a0a0a;
+            color: #27F535;
+            padding: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .container {
+            border: 2px solid #27F535;
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(39, 245, 53, 0.3);
+        }
+        h1 {
+            text-align: center;
+            text-shadow: 0 0 10px #27F535;
+        }
+        button {
+            background: #27F535;
+            color: #0a0a0a;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin: 20px 0;
+            font-family: 'Share Tech Mono', monospace;
+        }
+        button:hover {
+            background: #1ed42e;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #status {
+            text-align: center;
+            margin: 20px 0;
+            min-height: 30px;
+        }
+        #preview {
+            background: #1a1a1a;
+            border: 1px solid #27F535;
+            padding: 20px;
+            margin: 20px 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .info {
+            background: #1a1a1a;
+            padding: 15px;
+            margin: 20px 0;
+            border-left: 4px solid #27F535;
+        }
+        .upload-area {
+            border: 2px dashed #27F535;
+            padding: 30px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            background: #1a1a1a;
+        }
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>:: NIBS CAT METADATA GENERATOR ::</h1>
+        
+        <div class="info">
+            <strong>Instructions:</strong><br>
+            1. Upload your opensea_metadata.csv file below<br>
+            2. Click "Generate All JSON Files" to create all 1000 metadata files<br>
+            3. Download the ZIP file containing all JSON files<br>
+            4. Upload the JSON files to your server at https://www.nekron.org/nibs/<br>
+            5. Each file will be named {tokenId}.json (e.g., 1.json, 2.json, etc.)
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <strong>📁 CLICK TO UPLOAD CSV FILE</strong><br>
+            <small>(opensea_metadata.csv)</small>
+            <input type="file" id="fileInput" accept=".csv">
+        </div>
+
+        <button id="generateBtn" disabled>[ GENERATE ALL JSON FILES ]</button>
+        
+        <div id="status">>> AWAITING CSV FILE UPLOAD...</div>
+        
+        <div id="preview" style="display: none;"></div>
+    </div>
+
+    <script>
+        let csvContent = '';
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const generateBtn = document.getElementById('generateBtn');
+        const status = document.getElementById('status');
+        const preview = document.getElementById('preview');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    csvContent = event.target.result;
+                    const lines = csvContent.split('\n').filter(l => l.trim());
+                    status.textContent = `>> CSV LOADED: ${lines.length - 1} ENTRIES DETECTED. READY TO GENERATE.`;
+                    generateBtn.disabled = false;
+                    uploadArea.innerHTML = `<strong>✓ FILE LOADED: ${file.name}</strong><br><small>${lines.length - 1} Nibs Cats detected</small>`;
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        function formatAttributeValue(value) {
+            if (!value || value === 'Nothing') return 'None';
+            return value.replace(/([A-Z])/g, ' $1').trim();
+        }
+
+        function generateJSON(row) {
+            const attributes = [
+                { trait_type: 'Background', value: formatAttributeValue(row.background) },
+                { trait_type: 'Body', value: formatAttributeValue(row.body) },
+                { trait_type: 'Eyes', value: formatAttributeValue(row.eyes) },
+                { trait_type: 'Face', value: formatAttributeValue(row.face) },
+                { trait_type: 'Object', value: formatAttributeValue(row.object) },
+                { trait_type: 'Tee', value: formatAttributeValue(row.tee) }
+            ];
+
+            return {
+                name: row.name,
+                description: row.description,
+                image: `https://www.nekron.org/nibs/${row.tokenId}.png`,
+                external_url: `https://www.nekron.org/nibs/${row.tokenId}`,
+                attributes: attributes
+            };
+        }
+
+        async function generateAllFiles() {
+            generateBtn.disabled = true;
+            status.textContent = '>> INITIALIZING METADATA GENERATION...';
+            preview.style.display = 'block';
+            
+            const lines = csvContent.split('\n').filter(line => line.trim());
+            if (lines.length < 2) {
+                status.textContent = '>> ERROR: Invalid CSV format.';
+                generateBtn.disabled = false;
+                return;
+            }
+
+            const zip = new JSZip();
+            
+            status.textContent = `>> PROCESSING ${lines.length - 1} ENTRIES...`;
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',');
+                
+                const row = {
+                    tokenId: values[0],
+                    name: values[2],
+                    description: values[3],
+                    background: values[6],
+                    body: values[7],
+                    eyes: values[8],
+                    face: values[9],
+                    object: values[10],
+                    tee: values[11]
+                };
+                
+                const json = generateJSON(row);
+                zip.file(`${row.tokenId}.json`, JSON.stringify(json, null, 2));
+                
+                if (i % 100 === 0) {
+                    status.textContent = `>> GENERATED ${i} OF ${lines.length - 1} FILES...`;
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                }
+                
+                if (i === 1) {
+                    preview.innerHTML = `<strong>Preview of ${row.tokenId}.json:</strong><pre>${JSON.stringify(json, null, 2)}</pre>`;
+                }
+            }
+            
+            status.textContent = '>> CREATING ZIP ARCHIVE...';
+            
+            try {
+                const blob = await zip.generateAsync({ 
+                    type: 'blob',
+                    compression: 'DEFLATE',
+                    compressionOptions: { level: 9 }
+                });
+                
+                saveAs(blob, 'nibs_cat_metadata.zip');
+                
+                status.textContent = `>> ✓ COMPLETE! Generated ${lines.length - 1} JSON files. Download started: nibs_cat_metadata.zip`;
+            } catch (error) {
+                status.textContent = `>> ERROR: ${error.message}`;
+            }
+            
+            generateBtn.disabled = false;
+        }
+
+        generateBtn.addEventListener('click', generateAllFiles);
+    </script>
+</body>
+</html>

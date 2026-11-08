@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hacker Audio Spectrum Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;700&display=swap');
+
+        body {
+            background-color: #050505;
+            color: #00ff41;
+            font-family: 'Fira Code', monospace;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+
+        .crt::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90s, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 100;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        .glow {
+            text-shadow: 0 0 5px #00ff41, 0 0 10px #00ff41;
+        }
+
+        canvas {
+            filter: drop-shadow(0 0 10px rgba(0, 255, 65, 0.5));
+        }
+
+        .panel {
+            background: rgba(0, 20, 0, 0.8);
+            border: 1px solid #00ff41;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+        }
+
+        .btn-hacker {
+            background: transparent;
+            border: 1px solid #00ff41;
+            color: #00ff41;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .btn-hacker:hover {
+            background: #00ff41;
+            color: #000;
+            box-shadow: 0 0 20px #00ff41;
+        }
+
+        .btn-hacker:active {
+            transform: scale(0.95);
+        }
+
+        .scanline {
+            width: 100%;
+            height: 2px;
+            background: rgba(0, 255, 65, 0.1);
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 101;
+            animation: scan 4s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100%; }
+        }
+
+        #status-light {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .pulse {
+            animation: pulse-animation 2s infinite;
+        }
+
+        @keyframes pulse-animation {
+            0% { box-shadow: 0 0 0 0px rgba(0, 255, 65, 0.7); }
+            100% { box-shadow: 0 0 0 10px rgba(0, 255, 65, 0); }
+        }
+    </style>
+</head>
+<body class="crt h-screen flex flex-col items-center justify-center p-4">
+    <div class="scanline"></div>
+
+    <!-- Header Info -->
+    <div class="w-full max-w-6xl mb-4 flex justify-between items-end">
+        <div>
+            <h1 class="text-3xl font-bold glow uppercase tracking-widest">Signal.Analyzer.v2.4</h1>
+            <p class="text-xs opacity-70">REAL-TIME SPECTRAL DECOMPOSITION // SENSITIVITY: HIGH</p>
+        </div>
+        <div class="text-right text-xs">
+            <p id="audio-stats">LATENCY: --ms | FREQ: --Hz</p>
+            <p id="mic-status" class="flex items-center justify-end">
+                <span id="status-light" class="bg-red-600"></span> 
+                <span>SYSTEM OFFLINE</span>
+            </p>
+        </div>
+    </div>
+
+    <!-- Main Display Panel -->
+    <div class="panel w-full max-w-6xl flex-grow relative overflow-hidden rounded-sm flex flex-col">
+        <div class="absolute top-2 left-2 text-[10px] opacity-40 select-none">
+            &gt; DB_METER [-120 to 0]<br>
+            &gt; FFT_SIZE: 2048<br>
+            &gt; GAIN_MODIFIER: ACTIVE
+        </div>
+        
+        <canvas id="visualizer" class="w-full h-full"></canvas>
+        
+        <!-- Controls Overlay -->
+        <div id="start-overlay" class="absolute inset-0 z-20 flex items-center justify-center bg-black bg-opacity-90">
+            <div class="text-center p-8 border border-[#00ff41]">
+                <p id="overlay-text" class="mb-6 text-xl tracking-tighter">INITIALIZE AUDIO CAPTURE INTERFACE?</p>
+                <button id="start-btn" class="btn-hacker px-8 py-3 font-bold">EXECUTE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Controls -->
+    <div class="w-full max-w-6xl mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="panel p-3 flex flex-col justify-center">
+            <label class="text-[10px] mb-1">BOOST SENSITIVITY (GAIN)</label>
+            <input type="range" id="gain-control" min="1" max="50" value="10" class="accent-[#00ff41] bg-black border border-[#00ff41]">
+        </div>
+        
+        <div class="panel p-3 flex flex-col justify-center">
+            <label class="text-[10px] mb-1">SMOOTHING CONSTANT</label>
+            <input type="range" id="smoothing-control" min="0" max="95" value="85" class="accent-[#00ff41] bg-black border border-[#00ff41]">
+        </div>
+
+        <div class="panel p-3 flex items-center justify-around">
+            <button id="toggle-peaks" class="text-[10px] border border-[#00ff41] px-2 py-1 hover:bg-[#00ff41] hover:text-black">TOGGLE PEAKS</button>
+            <button id="freeze-frame" class="text-[10px] border border-[#00ff41] px-2 py-1 hover:bg-[#00ff41] hover:text-black">FREEZE SIGNAL</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('start-btn');
+        const overlay = document.getElementById('start-overlay');
+        const overlayText = document.getElementById('overlay-text');
+        const statusLight = document.getElementById('status-light');
+        const statusText = document.querySelector('#mic-status span:last-child');
+        const gainControl = document.getElementById('gain-control');
+        const smoothingControl = document.getElementById('smoothing-control');
+        const statsDisplay = document.getElementById('audio-stats');
+        const togglePeaksBtn = document.getElementById('toggle-peaks');
+        const freezeBtn = document.getElementById('freeze-frame');
+
+        let audioCtx;
+        let analyzer;
+        let microphone;
+        let gainNode;
+        let dataArray;
+        let animationId;
+        let showPeaks = true;
+        let isFrozen = false;
+        let peakArray = [];
+
+        function resize() {
+            canvas.width = canvas.clientWidth * window.devicePixelRatio;
+            canvas.height = canvas.clientHeight * window.devicePixelRatio;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        async function initAudio() {
+            try {
+                // Ensure context is created on user gesture
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+
+                // Check for mic access
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    }, 
+                    video: false 
+                });
+                
+                // If context was suspended (browser policy), resume it
+                if (audioCtx.state === 'suspended') {
+                    await audioCtx.resume();
+                }
+
+                analyzer = audioCtx.createAnalyzer();
+                analyzer.fftSize = 2048;
+                analyzer.smoothingTimeConstant = smoothingControl.value / 100;
+                
+                microphone = audioCtx.createMediaStreamSource(stream);
+                gainNode = audioCtx.createGain();
+                
+                // Set higher initial sensitivity boost
+                gainNode.gain.value = gainControl.value;
+                
+                microphone.connect(gainNode);
+                gainNode.connect(analyzer);
+                
+                const bufferLength = analyzer.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+                peakArray = new Float32Array(bufferLength).fill(0);
+
+                overlay.style.display = 'none';
+                statusLight.classList.remove('bg-red-600');
+                statusLight.classList.add('bg-[#00ff41]', 'pulse');
+                statusText.innerText = 'SIGNAL ACQUIRED / STREAMING';
+                
+                statsDisplay.innerText = `LATENCY: ${Math.round(audioCtx.baseLatency * 1000 || 0)}ms | FREQ: ${audioCtx.sampleRate}Hz`;
+
+                draw();
+            } catch (err) {
+                console.error("Audio initialization failed:", err);
+                overlayText.innerText = "ACCESS DENIED: MICROPHONE NOT FOUND";
+                statusText.innerText = 'ERROR: HARDWARE DISCONNECTED';
+                statusLight.classList.add('bg-orange-500');
+                
+                const errorBox = document.createElement('div');
+                errorBox.className = "text-red-500 text-xs mt-4 text-center";
+                errorBox.innerText = "Please ensure your microphone is plugged in and you have granted permission in the browser address bar.";
+                if (!overlay.querySelector('.error-msg')) {
+                    errorBox.classList.add('error-msg');
+                    overlay.firstElementChild.appendChild(errorBox);
+                }
+            }
+        }
+
+        function draw() {
+            if (!isFrozen) {
+                animationId = requestAnimationFrame(draw);
+                analyzer.getByteFrequencyData(dataArray);
+            }
+
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.2)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const barWidth = (canvas.width / (dataArray.length / 2)) * 2.5;
+            let barHeight;
+            let x = 0;
+
+            for (let i = 0; i < dataArray.length / 2; i++) {
+                barHeight = (dataArray[i] / 255) * canvas.height * 0.8;
+
+                const greenIntensity = Math.floor(dataArray[i] + 100);
+                ctx.fillStyle = `rgb(0, ${Math.min(255, greenIntensity)}, ${Math.min(100, i/4)})`;
+                
+                ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+
+                if (showPeaks) {
+                    if (barHeight > peakArray[i]) {
+                        peakArray[i] = barHeight;
+                    } else {
+                        peakArray[i] -= 1.0; 
+                    }
+
+                    if (peakArray[i] > 0) {
+                        ctx.fillStyle = '#00ff41';
+                        ctx.fillRect(x, canvas.height - peakArray[i] - 2, barWidth - 1, 2);
+                    }
+                }
+
+                x += barWidth;
+            }
+
+            ctx.strokeStyle = 'rgba(0, 255, 65, 0.05)';
+            ctx.lineWidth = 1;
+            for(let j = 0; j < 10; j++) {
+                let yLine = (canvas.height / 10) * j;
+                ctx.beginPath();
+                ctx.moveTo(0, yLine);
+                ctx.lineTo(canvas.width, yLine);
+                ctx.stroke();
+            }
+        }
+
+        startBtn.addEventListener('click', () => {
+            initAudio();
+        });
+
+        gainControl.addEventListener('input', (e) => {
+            if (gainNode) gainNode.gain.value = e.target.value;
+        });
+
+        smoothingControl.addEventListener('input', (e) => {
+            if (analyzer) analyzer.smoothingTimeConstant = e.target.value / 100;
+        });
+
+        togglePeaksBtn.addEventListener('click', () => {
+            showPeaks = !showPeaks;
+            togglePeaksBtn.style.backgroundColor = showPeaks ? 'rgba(0, 255, 65, 0.2)' : 'transparent';
+        });
+
+        freezeBtn.addEventListener('click', () => {
+            isFrozen = !isFrozen;
+            freezeBtn.innerText = isFrozen ? 'RESUME SIGNAL' : 'FREEZE SIGNAL';
+            if (!isFrozen) draw();
+        });
+
+        // Global click to resume if state changes
+        window.addEventListener('click', () => {
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        });
+
+    </script>
+</body>
+</html>

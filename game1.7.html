@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-R">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZeroDay Dealer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Share+Tech+Mono&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --black: #0D0D0D;
+            --green: #00FF41;
+            --dark-green: #008F25;
+            --light-green: #ADFFC4;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--black);
+            border-left: 1px solid var(--dark-green);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--dark-green);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--green);
+        }
+
+        /* --- MODIFIED --- Full-page background image */
+        html {
+            height: 100%;
+            margin: 0;
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+            transition: background-image 0.5s ease-in-out;
+            background-color: var(--black);
+            /* Fallback color */
+        }
+
+        /* --- MODIFIED --- Body has dark overlay */
+        body {
+            height: 100%;
+            margin: 0;
+            /* Dark overlay to make terminal pop */
+            background-color: rgba(0, 0, 0, 0.4);
+            color: var(--green);
+            font-family: 'Share Tech Mono', 'Courier New', Courier, monospace;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+
+        /* Main terminal window */
+        #terminal-window {
+            width: 100%;
+            max-width: 800px;
+            height: 85vh;
+            border: 2px solid var(--green);
+            border-radius: 8px;
+            /* --- MODIFIED --- More opaque, more blur */
+            background-color: #00000080;
+            backdrop-filter: blur(1px);
+            box-shadow: 0 0 25px var(--green);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            z-index: 1; /* --- NEW --- Layering for smoke effect */
+        }
+
+        /* Header bar */
+        .terminal-header {
+            background: var(--green);
+            color: var(--black);
+            font-family: 'Inter', sans-serif;
+            font-weight: bold;
+            padding: 4px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--green);
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+        }
+
+        .terminal-header .title {
+            text-shadow: none;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .header-buttons span {
+            width: 12px;
+            height: 12px;
+            background: var(--black);
+            border-radius: 50%;
+            border: 1px solid var(--black);
+        }
+
+        .header-buttons .close {
+            background: #FF5F56;
+        }
+
+        .header-buttons .min {
+            background: #FFBD2E;
+        }
+
+        .header-buttons .max {
+            background: #27C93F;
+        }
+
+        /* Output area */
+        #output {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            line-height: 1.4;
+        }
+
+        #output p {
+            margin: 0 0 5px 0;
+            word-wrap: break-word;
+        }
+
+        /* Input line */
+        .input-line {
+            display: flex;
+            padding: 0.5rem 1rem;
+            border-top: 1px solid var(--dark-green);
+        }
+
+        .input-line span {
+            margin-right: 8px;
+            animation: blink 1s step-end infinite;
+        }
+
+        #command-input {
+            background: transparent;
+            border: none;
+            color: var(--green);
+            font-family: 'Share Tech Mono', 'Courier New', Courier, monospace;
+            font-size: 1em;
+            width: 100%;
+            outline: none;
+        }
+
+        /* Text styling */
+        #output p.user-input {
+            color: var(--light-green);
+        }
+
+        #output p.error {
+            color: #FF5F56;
+            /* Red for errors */
+            text-shadow: 0 0 5px #FF5F56;
+        }
+
+        #output p.success {
+            color: #27C93F;
+            /* Brighter green for success */
+            text-shadow: 0 0 5px #27C93F;
+        }
+
+        #output p.info {
+            color: #FFBD2E;
+            /* Yellow for info */
+            text-shadow: 0 0 5px #FFBD2E;
+        }
+
+        #output p.event {
+            color: #FF5F56;
+            font-weight: bold;
+            text-shadow: 0 0 8px #FF5F56;
+            border: 1px dashed #FF5F56;
+            padding: 5px;
+            margin-top: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+
+        th,
+        td {
+            border: 1px solid var(--dark-green);
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--dark-green);
+            color: var(--black);
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Blinking cursor effect for the prompt */
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* This styles the container div */
+        div.top-icons {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            /* This arranges the <a> tags inside it horizontally */
+            z-index: 3; /* --- NEW --- Layering for smoke effect */
+        }
+
+        /* This styles the images inside */
+        div.top-icons img {
+            height: 30px;
+            /* All the other rules are removed from here */
+        }
+
+        /* --- NEW: SMOKE EFFECT STYLES --- */
+        #smoke-effect {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(200, 200, 200, 0.1);
+            backdrop-filter: blur(0px);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 2; /* Over terminal, under icons */
+        }
+
+        #smoke-effect.smoking {
+            /* This animation is triggered by JS */
+            animation: smokePulse 3s ease-out;
+        }
+
+        @keyframes smokePulse {
+            0% {
+                opacity: 0;
+                backdrop-filter: blur(0px);
+            }
+
+            30% {
+                opacity: 0.5;
+                backdrop-filter: blur(4px);
+                /* Blur the terminal behind it */
+            }
+
+            70% {
+                opacity: 0.5;
+                backdrop-filter: blur(4px);
+            }
+
+            100% {
+                opacity: 0;
+                backdrop-filter: blur(0px);
+            }
+        }
+        /* --- END NEW --- */
+
+        /* --- NEW: PRODUCT ICON STYLE --- */
+        .product-icon {
+            height: 1.5em; /* Scale with font size */
+            width: auto;
+            vertical-align: middle;
+            margin-right: 8px;
+            border: 1px solid var(--dark-green);
+        }
+        /* --- END NEW --- */
+
+    </style>
+</head>
+
+<body>
+    <div id="smoke-effect"></div>
+    <div class="top-icons"> <a href="https://www.nekron.org/"><img src="https://www.nekron.org/hawk.png"
+                alt="Hawk Icon"></a> <a href="https://www.nekron.org/vec"><img src="https://www.nekron.org/squid.gif"
+                alt="Squid Icon"></a> <a href="https://www.nekron.org/wavenabber"><img
+                src="https://www.nekron.org/ggsm.png" alt="GGSM Icon"></a> <a href="https://www.nekron.org/radar.html"><img
+                src="https://www.nekron.org/moths.png" alt="Moths Icon"></a>
+    </div>
+    <div id="terminal-window" style="margin-top: 70px; padding: 0px; margin-bottom: 40px;">
+        <div class="terminal-header"> <span class="title">ZeroDay Dealer v1.0</span>
+            <div class="header-buttons"> <span class="min"></span> <span class="max"></span> <span class="close"></span>
+            </div>
+        </div>
+        <div id="output"></div>
+        <div class="input-line"> <span>></span>
+            <input type="text" id="command-input" autofocus autocomplete="off">
+        </div>
+    </div>
+    <script>
+        // DOM Elements
+        const output = document.getElementById('output');
+        const commandInput = document.getElementById('command-input');
+        const smokeOverlay = document.getElementById('smoke-effect'); // --- NEW ---
+
+        // City Definitions
+        const CITIES = ["Omaha", "Kansas City", "Rapid City", "Minneapolis", "Chicago"];
+
+        // --- NEW --- City Graphics Map
+        const CITY_GRAPHICS = {
+            "Omaha": "https://www.nekron.org/pics/omaha.jpg",
+            "Kansas City": "https://www.nekron.org/pics/kansas.jpg",
+            "Rapid City": "https://www.nekron.org/pics/rapid.jpg",
+            "Minneapolis": "https://www.nekron.org/pics/minneapolis.jpg",
+            "Chicago": "https://www.nekron.org/pics/chicago.jpg"
+        };
+
+        // --- NEW --- Contact Name Pool
+        const CONTACT_NAMES = [
+            "Josh", "Jess", "Justin", "Chris", "Alex", "Sam", "Pat", "Taylor",
+            "Morgan", "Jordan", "Casey", "Riley", "Jamie", "Max", "Ben", "Maria",
+            "David", "Sarah", "Mike", "Emily", "Dan", "Laura", "Tom", "Kate", "Ryan"
+        ];
+
+        // --- NEW --- City Action Costs
+        const INN_COST = 72;
+        const MARKET_COST = 20;
+
+        // Game State
+        let gameState = {
+            cash: 2000,
+            day: 1,
+            heat: 0, // Police attention
+            inventory: {},
+            upgrades: {
+                encryption: 1, // Reduces heat from transactions
+                firewall: 1, // Reduces % of cash seized
+            },
+            currentLocation: null, // Will be set on boot
+            goal: 100000,
+            gameOver: false,
+        };
+
+        // --- MODIFIED: Added img property ---
+        // Product Definitions
+        const products = {
+            'purple-runtz': { name: 'Purple Runtz G', basePrice: 30, volatility: 0.2, heat: 1, img: 'https://www.nekron.org/pics/b1.gif' },
+            'gorilla-glue': { name: 'Gorilla Glue oz', basePrice: 250, volatility: 0.4, heat: 5, img: 'https://www.nekron.org/pics/b2.gif' },
+            'xanax': { name: 'Xanax Bottle', basePrice: 450, volatility: 0.3, heat: 5, img: 'https://www.nekron.org/pics/b3.gif' },
+            'blues': { name: 'Blues boat', basePrice: 1300, volatility: 0.5, heat: 9, img: 'https://www.nekron.org/pics/b4.gif' },
+            'shards': { name: 'Shards lbs', basePrice: 5000, volatility: 0.8, heat: 30, img: 'https://www.nekron.org/pics/b5.png' }
+        };
+        // --- END MODIFIED ---
+
+        // Market State
+        let currentMarket = {};
+        // --- NEW --- Contacts State
+        let currentContacts = {};
+        // --- NEW --- Available City Actions
+        let currentCityActions = {
+            inn: false,
+            market: false,
+            jay: false
+        };
+
+        // --- Core Functions ---
+
+        /**
+         * Logs a message to the terminal output.
+         * @param {string} message - The message to log.
+         * @param {string} type - 'user-input', 'error', 'success', 'info', 'event', or 'normal'.
+         */
+        function logToTerminal(message, type = 'normal') {
+            const p = document.createElement('p');
+            p.innerHTML = message; // Use innerHTML to allow formatted tables/lists
+            if (type) {
+                p.classList.add(type);
+            }
+            output.appendChild(p);
+            // Auto-scroll to bottom
+            output.scrollTop = output.scrollHeight;
+        }
+
+        /**
+         * --- NEW ---
+         * Updates the background graphic based on the current city.
+         */
+        function updateCityGraphic() {
+            const city = gameState.currentLocation;
+            if (CITY_GRAPHICS[city]) {
+                const imageUrl = CITY_GRAPHICS[city];
+                // Set the background on the HTML element for a full-page effect
+                document.documentElement.style.backgroundImage = `url('${imageUrl}')`;
+            }
+        }
+
+        /**
+         * --- NEW ---
+         * Shuffles an array in place (Fisher-Yates) and returns N elements.
+         * @param {Array} array - The array to shuffle.
+         * @param {number} n - The number of elements to return.
+         */
+        function pickRandomElements(array, n) {
+            const shuffled = [...array]; // Clone the array
+            let m = shuffled.length, t, i;
+
+            // While there remain elements to shuffle…
+            while (m) {
+                // Pick a remaining element…
+                i = Math.floor(Math.random() * m--);
+
+                // And swap it with the current element.
+                t = shuffled[m];
+                shuffled[m] = shuffled[i];
+                shuffled[i] = t;
+            }
+
+            return shuffled.slice(0, n);
+        }
+
+        /**
+         * Simulates a boot-up sequence.
+         */
+        async function startBootSequence() {
+            commandInput.disabled = true;
+
+            // Set initial location
+            gameState.currentLocation = CITIES[Math.floor(Math.random() * CITIES.length)];
+            updateCityGraphic(); // --- NEW --- Set initial background
+
+            const bootMessages = [
+                { msg: "Booting kernel...", delay: 500 },
+                { msg: "Initializing node network... OK", delay: 300 },
+                { msg: "Connecting to anonymous proxy... OK", delay: 700 },
+                { msg: "Bypassing CyberPol firewall... OK", delay: 1000 },
+                { msg: "Connection secured.", delay: 300 },
+                { msg: "Welcome to <span class='success'>ZeroDay Dealer</span>.", delay: 200 },
+                { msg: "Your goal: Amass <span class='info'>$100,000</span>.", delay: 200 },
+                { msg: "Use '<span class='info'>market</span>' to buy and '<span class='info'>contacts</span>' to find sellers.", delay: 200 },
+                { msg: "Type '<span class='info'>help</span>' to see all commands.", delay: 200 }
+            ];
+
+            for (const item of bootMessages) {
+                await new Promise(res => setTimeout(res, item.delay));
+                logToTerminal(item.msg);
+            }
+
+            commandInput.disabled = false;
+            commandInput.focus();
+            generateMarketPrices();
+            generateContacts(); // --- NEW ---
+
+            // Log initial location
+            logToTerminal(`Current node location: <span class='info'>${gameState.currentLocation}</span>.`);
+
+            showStatus();
+        }
+
+        // --- MODIFIED --- Contact Archetypes (was 'contacts')
+        const CONTACT_ARCHETYPES = {
+            'Archetype A': { // Was 'Contact A'
+                heatMultiplier: 1.0, // Standard heat
+                priceMultipliers: {
+                    'purple-runtz': 1.25, // Likes cheap stuff
+                    'gorilla-glue': 1.4,
+                    'xanax': 0.8,
+                    'blues': 0.8, // Hates expensive stuff
+                    'shards': 0.7 // Hates expensive stuff
+                }
+            },
+            'Archetype B': { // Was 'Contact B'
+                heatMultiplier: 1.6, // Riskier, but pays well for high-end
+                priceMultipliers: {
+                    'purple-runtz': 0.5, // Hates cheap stuff
+                    'gorilla-glue': 1.3,
+                    'xanax': 1.4,
+                    'blues': 1.5, // Loves expensive stuff
+                    'shards': 1.6 // Loves expensive stuff
+                }
+            },
+            'Archetype C': { // Was 'Contact C'
+                heatMultiplier: 0.7, // Safer, but pays less
+                priceMultipliers: {
+                    'purple-runtz': 1.5,
+                    'gorilla-glue': 1.2,
+                    'xanax': 1.2,
+                    'blues': 1.0, // Average price
+                    'shards': 0.9
+                }
+            }
+        };
+
+        // --- Core Functions ---
+
+        /**
+         * Generates new market prices for all products.
+         */
+        /**
+         * Generates new market prices for all products.
+         */
+        function generateMarketPrices() {
+            for (const key in products) {
+                const prod = products[key];
+                let newPrice;
+
+                if (key === 'xanax') {
+                    // Special price logic for Xanax: range [350, 550]
+                    const minPrice = 350;
+                    const maxPrice = 550;
+                    newPrice = Math.floor(Math.random() * (maxPrice - minPrice + 1)) + minPrice;
+                } else if (key === 'gorilla-glue') {
+                    // --- MODIFIED --- Special price logic for Gorilla Glue: range [250, 550]
+                    const minPrice = 250;
+                    const maxPrice = 550;
+                    newPrice = Math.floor(Math.random() * (maxPrice - minPrice + 1)) + minPrice;
+                }
+                else {
+                    // Original price logic for other products
+                    const priceFluctuation = (Math.random() - 0.4) * prod.basePrice * prod.volatility;
+                    newPrice = Math.round(prod.basePrice + priceFluctuation);
+                    if (newPrice < 5) newPrice = 5; // Price floor
+                }
+
+                currentMarket[key] = {
+                    name: prod.name,
+                    price: newPrice,
+                    heat: prod.heat
+                };
+
+                // Initialize inventory if not present
+                if (!gameState.inventory[key]) {
+                    gameState.inventory[key] = 0;
+                }
+            }
+        }
+
+        /**
+         * --- NEW ---
+         * Generates a new set of contacts for the current location.
+         */
+        function generateContacts() {
+            currentContacts = {}; // Clear old contacts
+            const archetypes = Object.values(CONTACT_ARCHETYPES);
+            // Get 3 random, unique names
+            const names = pickRandomElements(CONTACT_NAMES, archetypes.length);
+
+            for (let i = 0; i < names.length; i++) {
+                const name = names[i];
+                const archetype = archetypes[i];
+
+                // Use lowercase name as the key (e.g., 'josh')
+                const contactKey = name.toLowerCase();
+
+                currentContacts[contactKey] = {
+                    ...archetype, // Copy multiplier properties
+                    name: name    // Add the proper name (e.g., 'Josh')
+                };
+            }
+        }
+
+        /**
+         * Processes the user's command.
+         * @param {string} commandStr - The raw command string from the input.
+         */
+        async function processCommand(commandStr) { // --- MODIFIED: Made async
+            if (gameState.gameOver) return;
+
+            logToTerminal(`> ${commandStr}`, 'user-input');
+
+            const parts = commandStr.trim().toLowerCase().split(' ');
+            const cmd = parts[0];
+            const arg1 = parts[1];
+            const arg2 = parts[2];
+
+            switch (cmd) {
+                case 'help':
+                    showHelp();
+                    break;
+                case 'status':
+                    showStatus();
+                    break;
+                case 'market':
+                    showMarket();
+                    break;
+                case 'contacts':
+                    showContacts();
+                    break;
+                case 'buy':
+                    buyProduct(arg1, arg2);
+                    break;
+                case 'sell':
+                    sellProduct(arg1, arg2); // arg1 = product, arg2 = quantity
+                    break;
+                case 'travel':
+                    await travelToNewNode(); // --- MODIFIED: Added await
+                    break;
+                case 'upgrade':
+                    showUpgrades(arg1);
+                    break;
+                // --- NEW CITY ACTIONS ---
+                case 'browse':
+                    handleBrowseMarket();
+                    break;
+                case 'rest':
+                    handleRestInn();
+                    break;
+                case 'smoke':
+                    handleSmokeJay();
+                    break;
+                // --- END NEW ---
+                case 'clear':
+                    output.innerHTML = '';
+                    break;
+                case 'exit':
+                    logToTerminal("Logging off... Connection terminated.", "info");
+                    gameState.gameOver = true;
+                    commandInput.disabled = true;
+                    break;
+                default:
+                    logToTerminal(`Unknown command: '${cmd}'. Type 'help' for a list.`, 'error');
+            }
+        }
+
+        // --- Command Functions ---
+
+        function showHelp() {
+            logToTerminal(`
+                <strong>Available Commands:</strong>
+                <ul>
+                    <li><strong>help</strong>: Shows this help message.</li>
+                    <li><strong>status</strong>: Displays your current cash, heat, day, and inventory.</li>
+                    <li><strong>market</strong>: Shows the current *buy* prices for products.</li>
+                    <li><strong>contacts</strong>: Displays your list of contacts to sell to (shows their price multipliers and heat).</li>
+                    <li><strong>buy [product] [quantity]</strong>: Buy a product. (e.g., 'buy purple-runtz 10')</li>
+                    <li><strong>sell [product] [quantity]</strong>: Sells a product to the contact offering the best price. (e.g., 'sell purple-runtz 5')</li>
+                    <li><strong>browse</strong>: Spend $20 at a local market to reduce heat by 3% (if available).</li>
+                    <li><strong>rest</strong>: Spend $72 at an inn to reduce heat by 20% (if available).</li>
+                    <li><strong>smoke</strong>: Reduces heat by 20% (if available).</li>
+                    <li><strong>travel</strong>: Moves to a new city, advancing the day, refreshing prices, and risking events.</li>
+                    <li><strong>upgrade</strong>: View or buy available upgrades. (e.g., 'upgrade encryption')</li>
+                    <li><strong>clear</strong>: Clears the terminal screen.</li>
+                    <li><strong>exit</strong>: Quits the game.</li>
+                </ul>
+            `);
+        }
+
+        // --- MODIFIED: Added product images ---
+        function showStatus() {
+            let inventoryList = '<strong>Inventory:</strong><br>';
+            let hasInventory = false;
+            for (const key in gameState.inventory) {
+                if (gameState.inventory[key] > 0) {
+                    const prodInfo = products[key];
+                    const imgTag = prodInfo.img ? `<img src="${prodInfo.img}" alt="${prodInfo.name}" class="product-icon">` : '';
+                    inventoryList += `&nbsp;&nbsp;${imgTag}${prodInfo.name}: ${gameState.inventory[key]} units<br>`;
+                    hasInventory = true;
+                }
+            }
+            if (!hasInventory) inventoryList += '&nbsp;&nbsp;None';
+
+            logToTerminal(`
+                <strong>--- STATUS REPORT ---</strong><br>
+                <strong>Day:</strong> ${gameState.day}<br>
+                <strong>Location:</strong> <span class='info'>${gameState.currentLocation}</span><br>
+                <strong>Cash:</strong> <span class='success'>$${gameState.cash.toLocaleString()}</span> / $${gameState.goal.toLocaleString()}<br>
+                <strong>Heat Level:</strong> <span class='${gameState.heat > 50 ? 'error' : 'info'}'>${gameState.heat}%</span><br>
+                ${inventoryList}
+            `);
+        }
+        // --- END MODIFIED ---
+
+        // --- MODIFIED: Added product images ---
+        function showMarket() {
+            let marketTable = `<strong>--- DARK MARKET (${gameState.currentLocation}) ---</strong>`
+            marketTable += '<table><tr><th>Product</th><th>Buy Price</th><th>Heat/unit</th></tr>';
+            for (const key in currentMarket) {
+                const prodInfo = products[key];
+                const marketInfo = currentMarket[key];
+                const imgTag = prodInfo.img ? `<img src="${prodInfo.img}" alt="${prodInfo.name}" class="product-icon">` : '';
+
+                marketTable += `<tr><td>${imgTag}${marketInfo.name} (${key})</td><td>$${marketInfo.price.toLocaleString()}</td><td>+${marketInfo.heat}</td></tr>`;
+            }
+            marketTable += '</table>';
+            logToTerminal(marketTable);
+        }
+        // --- END MODIFIED ---
+
+        // --- MODIFIED: Added product images ---
+        function showContacts() {
+            let contactsTable = '<strong>--- CONTACT LIST (SELL ONLY) ---</strong>';
+            // --- MODIFIED --- Removed (ID) from header
+            contactsTable += '<table><tr><th>Contact</th><th>Product</th><th>Price Offered</th><th>Heat x</th></tr>';
+
+            for (const contactKey in currentContacts) {
+                const contact = currentContacts[contactKey];
+                let firstRow = true;
+
+                const productCount = Object.keys(contact.priceMultipliers).length;
+
+                for (const productKey in contact.priceMultipliers) {
+                    const multiplier = contact.priceMultipliers[productKey];
+                    const marketPrice = currentMarket[productKey]?.price || products[productKey].basePrice;
+                    const offerPrice = Math.round(marketPrice * multiplier);
+                    
+                    const prodInfo = products[productKey]; // Get full product info
+                    const productName = prodInfo?.name || productKey;
+                    const imgTag = prodInfo?.img ? `<img src="${prodInfo.img}" alt="${productName}" class="product-icon">` : '';
+
+
+                    contactsTable += `<tr>`;
+                    if (firstRow) {
+                        // --- MODIFIED --- Removed contactKey from output
+                        contactsTable += `<td rowspan="${productCount}">${contact.name}</td>`;
+                    }
+                    contactsTable += `<td>${imgTag}${productName}</td>`; // Added image
+                    contactsTable += `<td>$${offerPrice.toLocaleString()} (x${multiplier})</td>`;
+                    if (firstRow) {
+                        contactsTable += `<td rowspan="${productCount}">x${contact.heatMultiplier}</td>`;
+                        firstRow = false;
+                    }
+                    contactsTable += `</tr>`;
+                }
+            }
+
+            contactsTable += '</table>';
+            logToTerminal(contactsTable);
+        }
+        // --- END MODIFIED ---
+
+        function buyProduct(productKey, quantityStr) {
+            const product = currentMarket[productKey];
+            const quantity = parseInt(quantityStr);
+
+            if (!product) {
+                logToTerminal(`Error: Product '${productKey}' not found. Check 'market'.`, 'error');
+                return;
+            }
+            if (isNaN(quantity) || quantity <= 0) {
+                logToTerminal('Error: Invalid quantity. Must be a positive number.', 'error');
+                return;
+            }
+
+            const totalCost = product.price * quantity;
+
+            if (gameState.cash < totalCost) {
+                logToTerminal(`Error: Not enough cash. Need $${totalCost.toLocaleString()}, have $${gameState.cash.toLocaleString()}.`, 'error');
+                return;
+            }
+
+            gameState.cash -= totalCost;
+            gameState.inventory[productKey] += quantity;
+
+            const heatAdded = Math.round((product.heat * quantity) / gameState.upgrades.encryption);
+            gameState.heat += heatAdded;
+
+            logToTerminal(`Successfully purchased ${quantity} units of ${product.name} for $${totalCost.toLocaleString()}.`, 'success');
+            logToTerminal(`Heat increased by ${heatAdded}%.`, 'info');
+            checkWinLoss();
+        }
+
+        function sellProduct(productKey, quantityStr) {
+
+            let bestContact = null;
+            let bestPrice = -1;
+
+            for (const contactKey in currentContacts) {
+                const contact = currentContacts[contactKey];
+                if (contact.priceMultipliers[productKey]) {
+                    const marketPrice = currentMarket[productKey]?.price || products[productKey].basePrice;
+                    const offerPrice = Math.round(marketPrice * contact.priceMultipliers[productKey]);
+
+                    if (offerPrice > bestPrice) {
+                        bestPrice = offerPrice;
+                        bestContact = contact;
+                    }
+                }
+            }
+
+            const contact = bestContact;
+            const productInfo = products[productKey];
+            const marketInfo = currentMarket[productKey];
+            let quantity = parseInt(quantityStr);
+
+            if (!contact) {
+                logToTerminal(`Error: No contact is currently buying '${productKey}'. Check 'contacts'.`, 'error');
+                return;
+            }
+            if (!productInfo || !marketInfo) {
+                logToTerminal(`Error: Product '${productKey}' not found. Check 'market'.`, 'error');
+                return;
+            }
+
+            if (isNaN(quantity) || quantity <= 0) {
+                if (quantityStr === 'all') {
+                    quantity = gameState.inventory[productKey];
+                } else {
+                    logToTerminal('Error: Invalid quantity. Must be a positive number or "all".', 'error');
+                    return;
+                }
+            }
+            if (quantity <= 0) {
+                logToTerminal(`Error: No ${productKey} to sell.`, 'error');
+                return;
+            }
+
+            if (gameState.inventory[productKey] < quantity) {
+                logToTerminal(`Error: Not enough inventory. Have ${gameState.inventory[productKey]} units of ${productInfo.name}.`, 'error');
+                return;
+            }
+
+            const pricePerUnit = bestPrice;
+            const totalSale = pricePerUnit * quantity;
+            gameState.cash += totalSale;
+            gameState.inventory[productKey] -= quantity;
+
+            const heatAdded = Math.round((productInfo.heat * quantity * contact.heatMultiplier) / gameState.upgrades.encryption);
+            gameState.heat += heatAdded;
+
+            logToTerminal(`Successfully sold ${quantity} units of ${productInfo.name} to ${contact.name} (best price) for $${totalSale.toLocaleString()}.`, 'success');
+            logToTerminal(`Heat increased by ${heatAdded}%.`, 'info');
+            checkWinLoss();
+        }
+
+        // --- NEW: City Action Handlers ---
+
+        function handleBrowseMarket() {
+            if (!currentCityActions.market) {
+                logToTerminal("Error: There is no local market available to browse.", 'error');
+                return;
+            }
+
+            if (gameState.cash < MARKET_COST) {
+                logToTerminal(`Error: You don't have $${MARKET_COST} to browse the market.`, 'error');
+                return;
+            }
+
+            gameState.cash -= MARKET_COST;
+            let old_heat = gameState.heat;
+            gameState.heat *= 0.87; // Reduce heat by 13%
+            gameState.heat = Math.max(0, Math.round(gameState.heat));
+
+            logToTerminal(`You spend $${MARKET_COST} browsing the stalls and blend in. Heat: ${old_heat} -> ${gameState.heat}.`);
+            currentCityActions.market = false; // Mark as used
+        }
+
+        function handleRestInn() {
+            if (!currentCityActions.inn) {
+                logToTerminal("Error: There is no inn available to rest at.", 'error');
+                return;
+            }
+
+            if (gameState.cash < INN_COST) {
+                logToTerminal(`Error: You can't afford the inn. Need $${INN_COST}.`, 'error');
+                return;
+            }
+
+            gameState.cash -= INN_COST;
+            let old_heat = gameState.heat;
+            gameState.heat *= 0.80; // Reduce heat by 20%
+            gameState.heat = Math.max(0, Math.round(gameState.heat));
+
+            logToTerminal(`You spend $${INN_COST} to rest for a while. Heat: ${old_heat} -> ${gameState.heat}.`);
+            currentCityActions.inn = false; // Mark as used
+        }
+
+        function handleSmokeJay() {
+            if (!currentCityActions.jay) {
+                logToTerminal("Error: This opportunity is not available.", 'error');
+                return;
+            }
+
+            // --- NEW: Trigger smoke effect ---
+            // Remove class to allow re-triggering if called again
+            smokeOverlay.classList.remove('smoking');
+            // Force a DOM reflow to restart the animation
+            void smokeOverlay.offsetWidth;
+            // Add class to start animation
+            smokeOverlay.classList.add('smoking');
+            // --- END NEW ---
+
+            let old_heat = gameState.heat;
+            gameState.heat *= 0.76; // Reduce heat by 24%
+            gameState.heat = Math.max(0, Math.round(gameState.heat));
+
+            logToTerminal(`You feel much more relaxed. Heat: ${old_heat} -> ${gameState.heat}.`, 'success');
+            currentCityActions.jay = false; // Mark as used
+        }
+        // --- END NEW ---
+
+        async function travelToNewNode() { // --- MODIFIED: Made async
+            gameState.day++;
+
+            const currentCity = gameState.currentLocation;
+            const possibleCities = CITIES.filter(city => city !== currentCity);
+            const newCity = possibleCities[Math.floor(Math.random() * possibleCities.length)];
+            gameState.currentLocation = newCity;
+
+            updateCityGraphic();
+
+            logToTerminal(`Traveling to <span class='info'>${newCity}</span>... Day ${gameState.day}.`, 'info');
+
+            generateMarketPrices();
+            generateContacts();
+
+            // --- NEW: Reset and roll for city actions ---
+            currentCityActions = { inn: false, market: false, jay: false };
+
+            // 1. Check for Market (40% chance)
+            if (Math.random() <= 0.4) {
+                currentCityActions.market = true;
+            }
+
+            // 2. Check for Inn (33% chance)
+            if (Math.random() <= 0.33) {
+                currentCityActions.inn = true;
+            }
+
+            // --- FIXED CODE ---
+            // 3. Check for "Smoke a jay" (20% chance)
+            if (Math.random() <= 0.20) { // <-- ADD THIS BRACE
+                currentCityActions.jay = true;
+            }
+            // --- END NEW ---
+
+            logToTerminal("Market buy prices have shifted.");
+            logToTerminal("New contacts are available in this node.");
+            logToTerminal("Contact sell prices have been updated based on new market values.");
+
+            // --- NEW: Announce available actions ---
+            if (currentCityActions.market) {
+                logToTerminal("You spot a local market. Try '<span class='info'>browse</span>' to blend in. (Cost: $20, Heat: -3%)");
+            }
+            if (currentCityActions.inn) {
+                logToTerminal("An unlisted inn has a 'vacancy' sign. Try '<span class='info'>rest</span>'. (Cost: $72, Heat: -20%)");
+            }
+            if (currentCityActions.jay) {
+                // This is the green highlight requested
+                logToTerminal("A local offers you a session. Try '<span class='success'>smoke</span>'. (Cost: $0, Heat: -20%)", 'success');
+            }
+            // --- END NEW ---
+
+            showMarket();
+
+            await checkPoliceEvent(); // --- MODIFIED: Added await
+
+            if (!gameState.gameOver) {
+                // --- MODIFIED --- Doubled heat decay from 10% (min 5) to 20% (min 10)
+                const heatDecay = Math.max(13, Math.round(gameState.heat * 0.2));
+                gameState.heat = Math.max(0, gameState.heat - heatDecay);
+                logToTerminal(`Heat level cooled by ${heatDecay}%. Now at ${gameState.heat}%.`);
+            }
+
+            checkWinLoss();
+        }
+
+        // --- Event Functions ---
+
+        async function checkPoliceEvent() { // --- MODIFIED: Made async
+            const riskChance = gameState.heat / 2.8; // e.g., 100 heat = 50% chance
+            const roll = Math.random() * 100;
+
+            if (roll < riskChance) {
+                // BUSTED!
+                logToTerminal("!!! CYBERPOL RAID !!!", 'event');
+                logToTerminal("System compromised! Proxies failing!", 'event');
+
+                // --- MODIFIED: Delay, d20 roll, and ASCII spinner ---
+                logToTerminal("Attempting to reroute connection...", 'info');
+
+                // Create loader element
+                const loader = document.createElement('p');
+                loader.classList.add('info');
+                // Set initial text so it doesn't jump
+                loader.textContent = "[ ]";
+                output.appendChild(loader);
+                output.scrollTop = output.scrollHeight;
+
+                const spinnerFrames = ['|', '/', '-', '\\'];
+                let frameIndex = 0;
+
+                // Start spinner animation
+                const spinnerInterval = setInterval(() => {
+                    loader.textContent = `[${spinnerFrames[frameIndex]}]`;
+                    frameIndex = (frameIndex + 1) % spinnerFrames.length;
+                }, 150);
+
+                // Wait for 8 seconds
+                await new Promise(res => setTimeout(res, 8000));
+
+                // Stop spinner and remove loader
+                clearInterval(spinnerInterval);
+                loader.remove();
+                // --- END MODIFICATION ---
+
+                const d20Roll = Math.floor(Math.random() * 20) + 1; // Roll d20
+
+                if (d20Roll >= 14) {
+                    // Get away!
+                    logToTerminal(`d20 roll: <span class='success'>${d20Roll}</span> (14+). You reroute your connection just in time!`, 'success');
+                    logToTerminal("Escape successful! The raid failed!", 'success');
+                    return; // Exit function, skip seizure
+                } else {
+                    // Busted
+                    logToTerminal(`d20 roll: <span class='error'>${d20Roll}</span> (1-13)... They're in!`, 'error');
+                    
+                    // --- NEW SPINNER ---
+                    logToTerminal("Firewall breached! Seizing assets...", 'event');
+
+                    // Create loader element
+                    const loader2 = document.createElement('p');
+                    loader2.classList.add('event'); // Use 'event' class for red
+                    loader2.textContent = "[ ]";
+                    output.appendChild(loader2);
+                    output.scrollTop = output.scrollHeight;
+
+                    // Can re-use spinnerFrames definition
+                    let frameIndex2 = 0;
+
+                    // Start spinner animation
+                    const spinnerInterval2 = setInterval(() => { // Use new var for interval
+                        loader2.textContent = `[${spinnerFrames[frameIndex2]}]`;
+                        frameIndex2 = (frameIndex2 + 1) % spinnerFrames.length;
+                    }, 150);
+
+                    // Wait for 4 seconds
+                    await new Promise(res => setTimeout(res, 4000));
+
+                    // Stop spinner and remove loader
+                    clearInterval(spinnerInterval2);
+                    loader2.remove();
+                    // --- END NEW SPINNER ---
+                }
+                // --- END NEW ---
+
+
+                // Seize inventory
+                let inventoryLost = 0;
+                for (const key in gameState.inventory) {
+                    if (gameState.inventory[key] > 0) {
+                        // Use market price for value calculation
+                        const price = currentMarket[key] ? currentMarket[key].price : products[key].basePrice;
+                        inventoryLost += gameState.inventory[key] * price;
+                        gameState.inventory[key] = 0;
+                    }
+                }
+                if (inventoryLost > 0) {
+                    logToTerminal(`All inventory seized (Value: $${inventoryLost.toLocaleString()})`, 'event');
+                }
+
+                // Seize cash
+                const cashLossPercent = Math.max(0.1, 0.5 / gameState.upgrades.firewall); // 50% loss, reduced by firewall
+                const cashLost = Math.round(gameState.cash * cashLossPercent);
+                gameState.cash -= cashLost;
+                logToTerminal(`$${cashLost.toLocaleString()} seized from accounts.`, 'event');
+
+                // Reset heat
+                gameState.heat = 0;
+                logToTerminal("Tracing complete. Heat reset to 0.", 'event');
+            }
+        }
+
+        function showUpgrades(upgradeKey) {
+            const encryptionCost = Math.round(500 * Math.pow(gameState.upgrades.encryption, 2));
+            const firewallCost = Math.round(1000 * Math.pow(gameState.upgrades.firewall, 2));
+
+            if (!upgradeKey) {
+                // Show available upgrades
+                logToTerminal(`
+                    <strong>--- UPGRADE STORE ---</strong>
+                    <p>1. <strong>encryption</strong> (Level ${gameState.upgrades.encryption}): Reduces heat generated from transactions.</p>
+                    <p>&nbsp;&nbsp;&nbsp;Cost for next level: <span class='info'>$${encryptionCost.toLocaleString()}</span></p>
+                    <p>2. <strong>firewall</strong> (Level ${gameState.upgrades.firewall}): Reduces cash seized during a raid.</p>
+                    <p>&nbsp;&nbsp;&nbsp;Cost for next level: <span class='info'>$${firewallCost.toLocaleString()}</span></p>
+                    <br>
+                    <p>Type 'upgrade [name]' to purchase.</p>
+                `);
+            } else {
+                // Try to buy an upgrade
+                if (upgradeKey === 'encryption') {
+                    if (gameState.cash >= encryptionCost) {
+                        gameState.cash -= encryptionCost;
+                        gameState.upgrades.encryption += 1;
+                        logToTerminal(`Encryption upgraded to Level ${gameState.upgrades.encryption}!`, 'success');
+                    } else {
+                        logToTerminal(`Error: Not enough cash for encryption upgrade. Need $${encryptionCost.toLocaleString()}.`, 'error');
+                    }
+                } else if (upgradeKey === 'firewall') {
+                    if (gameState.cash >= firewallCost) {
+                        gameState.cash -= firewallCost;
+                        gameState.upgrades.firewall += 1;
+                        logToTerminal(`Firewall upgraded to Level ${gameState.upgrades.firewall}!`, 'success');
+                    } else {
+                        logToTerminal(`Error: Not enough cash for firewall upgrade. Need $${firewallCost.toLocaleString()}.`, 'error');
+                    }
+                } else {
+                    logToTerminal(`Error: Unknown upgrade '${upgradeKey}'.`, 'error');
+                }
+            }
+        }
+
+        // --- DELETED DUPLICATE FUNCTION ---
+        // The old, non-async checkPoliceEvent function that was here has been removed.
+
+        function checkWinLoss() {
+            if (gameState.gameOver) return;
+
+            if (gameState.cash >= gameState.goal) {
+                logToTerminal("**************************************************", 'success');
+                logToTerminal(`** GOAL REACHED! YOU'VE MADE $${gameState.cash.toLocaleString()}! **`, 'success');
+                logToTerminal("** You are the new kingpin of the digital underworld. **", 'success');
+                logToTerminal("** Type 'exit' to retire in glory. **", 'success');
+                logToTerminal("**************************************************", 'success');
+                gameState.gameOver = true;
+                commandInput.disabled = true;
+            }
+
+            let hasInventory = false;
+            for (const key in gameState.inventory) {
+                if (gameState.inventory[key] > 0) hasInventory = true;
+            }
+
+            if (gameState.cash < 5 && !hasInventory) {
+                logToTerminal("--------------------------------------------------", 'error');
+                logToTerminal("-- GAME OVER --", 'error');
+                logToTerminal("-- You are out of cash and product. --", 'error');
+                logToTerminal("-- Your node is disconnected. --", 'error');
+                logToTerminal("--------------------------------------------------", 'error');
+                gameState.gameOver = true;
+                commandInput.disabled = true;
+            }
+        }
+
+        // --- Event Listeners ---
+
+        commandInput.addEventListener('keydown', async (e) => { // --- MODIFIED: Made async
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const commandStr = commandInput.value;
+                commandInput.value = '';
+                if (commandStr.trim().length > 0) {
+                    await processCommand(commandStr); // --- MODIFIED: Added await
+                }
+            }
+        });
+
+        // Click anywhere in the window to focus the input
+        document.getElementById('terminal-window').addEventListener('click', () => {
+            if (!gameState.gameOver) {
+                commandInput.focus();
+            }
+        });
+
+        // --- Start Game ---
+        startBootSequence();
+
+    </script>
+</body>
+
+</html>

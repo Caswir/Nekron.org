@@ -1,0 +1,351 @@
+<!DOCTYPE html> 
+<html lang="en"> 
+    <head> 
+        <meta charset="UTF-8"> 
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+        <title>Ambient Noise Monitor v2.1</title>         
+        <style>/* Basic styles for the page */body, html { margin: 0.2px; padding: -0.3px; height: 100%; overflow: hidden; background-color: #000000; color: #00FF00; font-family: 'Courier New', Courier, monospace; display: flex; justify-content: center; align-items: center; flex-direction: column; } /* Main container for radar and monitor panel */.main-content { display: flex; justify-content: center; align-items: center; gap: 30px;  /* Reduced gap for better cohesion */ margin-bottom: 20px; flex-wrap: wrap;  /* Allows panel to go below on small screens */ } /* Container for the radar */.radar-container { position: relative; display: flex; justify-content: center; align-items: center; } /* The canvas where the radar will be drawn */#radarCanvas { background-color: transparent; border-radius: 50%; } /* Panel for the noise level gauge and readouts */.monitor-panel { display: flex; flex-direction: column; align-items: center; gap: 15px; width: 130px;  /* Adjusted width */ } .monitor-panel h2 { margin: 0; font-size: 1.2rem; font-weight: normal; border-bottom: 1px solid #00FF00; padding-bottom: 5px; text-align: center; } #gaugeContainer { width: 25px;  /* Made 50% smaller */ height: 100px;  /* Made 50% smaller */ border: 2px solid #00FF00; border-radius: 4px; background-color: #001a00; display: flex; flex-direction: column-reverse;  /* Makes the bar grow from the bottom */ } #gaugeBar { width: 100%; height: 0%;  /* Starts empty */ background-color: #00FF00; transition: height 0.1s linear, background-color 0.2s linear; } #noiseLevelText { font-size: 2rem; font-weight: bold; margin: 0; } #noiseLevelLabel { font-size: 1.2rem; margin: 0; padding: 5px 10px; border: 1px solid #00FF00; border-radius: 4px; } /* Styling for the on/off toggle button */#toggleButton { margin-top: 10px; padding: 1rem 2rem; font-size: 1.2rem; color: #000000; border-radius: 8px; cursor: pointer; font-family: 'Courier New', Courier, monospace; font-weight: bold; transition: background-color 0.3s, color 0.3s, border-color 0.3s; width: 220px; text-align: center; } /* 'Off' state style */#toggleButton.off { background-color: #00FF00; border: 2px solid #00FF00; color: #000000; } #toggleButton.off:hover { background-color: #003300; color: #00FF00; } /* 'On' state style */#toggleButton.on { background-color: #FF4136;  /* Red */ border: 2px solid #FF4136; color: #FFFFFF; } #toggleButton.on:hover { background-color: #8B0000;  /* Darker Red */ color: #FFFFFF; } /* Status message text */#status { margin-top: 10px; color: #00FF00; font-size: 1rem; height: 20px; } #messageBox { width: 80%; max-width: 600px; height: 120px; border: 1px solid #00FF00; border-radius: 4px; background-color: #001a00; margin-top: 15px; overflow-y: scroll; padding: 10px; font-size: 0.9rem; color: #00FF00; box-sizing: border-box; } .message { margin: 0 0 5px 0; white-space: nowrap; } /* Container for the right-side panel */.side-panel { display: flex; flex-direction: column; align-items: center; gap: 20px; } /* Styles for the color code legend */.color-legend { display: flex; gap: 20px; padding: 8px; border: 1px solid #00FF00; border-radius: 4px; background-color: #001a00; } .legend-column { display: flex; flex-direction: column; gap: 4px; } .legend-title { font-weight: bold; border-bottom: 1px solid #00FF00; margin-bottom: 5px; font-size: 0.8rem; } .legend-item { display: flex; align-items: center; gap: 5px; } .legend-color-box { width: 12px; height: 12px; border: 1px solid #555;  /* Grey border */ } .legend-label { font-size: 0.8rem; }</style>         
+    </head>     
+    <body> 
+        <!-- Icons added to the top right corner -->         
+        <div style="position: absolute;top: 15px;right: 15px;display: flex;z-index: 50;"> <a href="https://www.nekron.org/"><img src="https://www.nekron.org/hawk.png" alt="Hawk Icon" style="height: 30px;display: block;"></a> <a href="https://www.nekron.org/vec"><img src="https://www.nekron.org/squid.gif" alt="Squid Icon" style="height: 30px; display: block;"></a> <a href="https://www.nekron.org/wavenabber"><img src="https://www.nekron.org/ggsm.png" alt="GGSM Icon" style="height: 30px; display: block;"></a> <a href="https://www.nekron.org/radar.html"><img src="https://www.nekron.org/moths.png" alt="Moths Icon" style="height: 30px; display: block;"></a> 
+        </div>         
+        <div class="main-content"> 
+            <div class="radar-container"> 
+                <canvas id="radarCanvas"></canvas>                 
+            </div>             
+            <div class="side-panel"> 
+                <div class="monitor-panel"> 
+                    <h2>NOISE LEVEL</h2> 
+                    <div id="gaugeContainer"> 
+                        <div id="gaugeBar"></div>                         
+                    </div>                     
+                    <p id="noiseLevelText">0%</p> 
+                    <p id="noiseLevelLabel">Quiet</p> 
+                </div>                 
+                <!-- Color code legend -->                 
+                <div class="color-legend"> 
+                    <div class="legend-column"> 
+                        <div class="legend-title">Frequency</div>                         
+                        <div class="legend-item"> 
+                            <div class="legend-color-box" style="background-color: #FF4136;"></div>                             <span class="legend-label">Low</span> 
+                        </div>                         
+                        <div class="legend-item"> 
+                            <div class="legend-color-box" style="background-color: #FFDC00;"></div>                             <span class="legend-label">Mid</span> 
+                        </div>                         
+                        <div class="legend-item"> 
+                            <div class="legend-color-box" style="background-color: #01FF70;"></div>                             <span class="legend-label">High</span> 
+                        </div>                         
+                    </div>                     
+                </div>                 
+            </div>             
+        </div>         
+        <button id="toggleButton" class="off">Start Monitor</button>         
+        <p id="status">Click "Start Monitor" and allow microphone access.</p> 
+        <div id="messageBox"> 
+            <p class="message">> System log initialized. Waiting for input...</p> 
+        </div>         
+        <div class="links" style="margin-top: 15px;">
+            <font size="2">  <a href="https://www.nekroniblis.com/">nekroniblis.com</a> | 
+ <a href="https://www.nekron.org/">nekron.org</a> | 
+ <a href="https://www.nekron.org/vec">Vektorweb</a> | 
+ <a href="https://www.nekron.org/wavenabber.html">Wave Nabber</a>  </font> 
+        </div>         
+        <script>
+        // Get references to DOM elements
+        const canvas = document.getElementById('radarCanvas');
+        const ctx = canvas.getContext('2d');
+        const toggleButton = document.getElementById('toggleButton');
+        const statusEl = document.getElementById('status');
+        const gaugeBar = document.getElementById('gaugeBar');
+        const noiseLevelText = document.getElementById('noiseLevelText');
+        const noiseLevelLabel = document.getElementById('noiseLevelLabel');
+        const messageBox = document.getElementById('messageBox');
+
+        // Audio and animation variables
+        let audioContext;
+        let analyser;
+        let dataArray;
+        let bufferLength;
+        let angle = 0;
+        let animationFrameId;
+        let audioStream;
+        let isMonitorActive = false;
+
+        // Blip detection variables
+        let blips = [];
+        const SOUND_THRESHOLD = 7; // Sensitivity for sound detection (0-255). Lower is more sensitive.
+        const MAX_BLIP_AGE = 150; // How long a blip stays on screen (in frames)
+
+        // Function to set up the canvas dimensions
+        function setupCanvas() {
+            // Increased canvas size for better visual presence
+            const size = Math.min(window.innerWidth, window.innerHeight) * 0.6;
+            canvas.width = size;
+            canvas.height = size;
+        }
+
+        // --- Monitor Control Functions ---
+
+        async function startMonitor() {
+            if (isMonitorActive) return;
+            try {
+                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.smoothingTimeConstant = 0.8; // Smoother readings
+                analyser.fftSize = 256;
+                
+                const source = audioContext.createMediaStreamSource(audioStream);
+                source.connect(analyser);
+
+                bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+                
+                isMonitorActive = true;
+                toggleButton.textContent = 'Stop Monitor';
+                toggleButton.className = 'on';
+                statusEl.textContent = 'SYSTEM ACTIVE...';
+                addMessage("> Monitor activated.");
+                
+                draw();
+
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                statusEl.textContent = 'Error: Microphone access denied.';
+                addMessage(`> ERROR: Microphone access denied. ${err.message}`);
+            }
+        }
+
+        function stopMonitor() {
+            if (!isMonitorActive) return;
+
+            cancelAnimationFrame(animationFrameId);
+            if (audioContext) audioContext.close();
+            if (audioStream) audioStream.getTracks().forEach(track => track.stop());
+
+            isMonitorActive = false;
+            blips = [];
+            toggleButton.textContent = 'Start Monitor';
+            toggleButton.className = 'off';
+            statusEl.textContent = 'SYSTEM OFFLINE. Click "Start Monitor".';
+            addMessage("> Monitor deactivated.");
+
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawGrid(canvas.width / 2, canvas.height / 2, canvas.width / 2);
+            updateMonitorPanel(0); 
+        }
+
+
+        // --- Drawing & Update Functions ---
+
+        function draw() {
+            animationFrameId = requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(dataArray);
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = canvas.width / 2;
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawGrid(centerX, centerY, radius);
+            drawStatic(centerX, centerY, radius); 
+            const average = calculateAverageVolume();
+            detectSoundAndCreateBlip(radius, average);
+            drawBlips(centerX, centerY);
+            drawSweep(centerX, centerY, radius);
+            updateMonitorPanel(average);
+
+            angle = (angle + 0.02) % (2 * Math.PI);
+        }
+
+        function calculateAverageVolume() {
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                sum += dataArray[i];
+            }
+            return sum / bufferLength;
+        }
+
+        function updateMonitorPanel(average) {
+            const noisePercent = Math.min(100, (average / 100) * 100); 
+            
+            gaugeBar.style.height = noisePercent + '%';
+            noiseLevelText.textContent = Math.round(noisePercent) + '%';
+            
+            let label = 'Quiet';
+            let color = '#00FF00'; // Green
+
+            if (noisePercent > 75) {
+                label = 'Very Loud';
+                color = '#FF4136'; // Red
+            } else if (noisePercent > 45) {
+                label = 'Loud';
+                color = '#FFDC00'; // Yellow
+            } else if (noisePercent > 20) {
+                label = 'Moderate';
+                color = '#01FF70'; // Lime Green
+            }
+
+            noiseLevelLabel.textContent = label;
+            gaugeBar.style.backgroundColor = color;
+            noiseLevelLabel.style.borderColor = color;
+        }
+
+        function drawGrid(centerX, centerY, radius) {
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+            ctx.lineWidth = 1;
+            for (let i = 1; i <= 4; i++) {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius * (i / 4), 0, 2 * Math.PI);
+                ctx.stroke();
+            }
+            ctx.beginPath();
+            ctx.moveTo(centerX - radius, centerY);
+            ctx.lineTo(centerX + radius, centerY);
+            ctx.moveTo(centerX, centerY - radius);
+            ctx.lineTo(centerX, centerY + radius);
+            ctx.stroke();
+        }
+
+        function drawStatic(centerX, centerY, radius) {
+            const staticPoints = 30; // Number of static dots per frame
+            ctx.save();
+            for (let i = 0; i < staticPoints; i++) {
+                const randomAngle = Math.random() * 2 * Math.PI;
+                const randomRadius = Math.random() * radius;
+                
+                const x = centerX + randomRadius * Math.cos(randomAngle);
+                const y = centerY + randomRadius * Math.sin(randomAngle);
+                const opacity = Math.random() * 0.2; // Faint static
+                
+                ctx.fillStyle = `rgba(0, 255, 0, ${opacity})`;
+                ctx.fillRect(x, y, 1, 1);
+            }
+            ctx.restore();
+        }
+
+        function drawSweep(centerX, centerY, radius) {
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(angle);
+            const gradient = ctx.createLinearGradient(0, 0, radius, 0);
+            gradient.addColorStop(0, 'rgba(0, 255, 0, 0)');
+            gradient.addColorStop(0.8, 'rgba(0, 255, 0, 0.6)');
+            gradient.addColorStop(1, 'rgba(0, 255, 0, 0.8)');
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, radius, -0.05, 0.05); 
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            ctx.restore();
+        }
+        
+        function getDominantFrequencyInfo(freqData) {
+            let maxVal = -1;
+            let maxIndex = -1;
+
+            for (let i = 0; i < bufferLength; i++) {
+                if (freqData[i] > maxVal) {
+                    maxVal = freqData[i];
+                    maxIndex = i;
+                }
+            }
+
+            const lowFrequencyThreshold = 15;
+            const highFrequencyThreshold = 50;
+            let color, type;
+
+            if (maxIndex < lowFrequencyThreshold) {
+                color = '255, 65, 54'; // Red for low frequencies
+                type = 'LOW';
+            } else if (maxIndex >= highFrequencyThreshold) {
+                color = '1, 255, 112'; // Lime Green for high frequencies
+                type = 'HIGH';
+            } else {
+                color = '255, 220, 0'; // Yellow for mid frequencies
+                type = 'MID';
+            }
+            
+            return { color, type };
+        }
+
+
+        function detectSoundAndCreateBlip(maxRadius, average) {
+            if (average > SOUND_THRESHOLD) {
+                const freqInfo = getDominantFrequencyInfo(dataArray);
+
+                blips.push({
+                    angle: angle,
+                    radius: (average / 128) * maxRadius * 0.8 + maxRadius * 0.1,
+                    age: 0,
+                    size: Math.min(8, 2 + average / 20),
+                    color: freqInfo.color
+                });
+                
+                const now = new Date();
+                const timeString = now.toLocaleTimeString();
+                addMessage(`[${timeString}] Noise event detected. FREQ: ${freqInfo.type}`);
+            }
+        }
+
+        function drawBlips(centerX, centerY) {
+            for (let i = blips.length - 1; i >= 0; i--) {
+                const blip = blips[i];
+                blip.age++;
+                if (blip.age > MAX_BLIP_AGE) {
+                    blips.splice(i, 1);
+                    continue;
+                }
+                const x = centerX + blip.radius * Math.cos(blip.angle);
+                const y = centerY + blip.radius * Math.sin(blip.angle);
+                const opacity = 1 - (blip.age / MAX_BLIP_AGE);
+                ctx.beginPath();
+                ctx.arc(x, y, blip.size, 0, 2 * Math.PI);
+                ctx.fillStyle = `rgba(${blip.color}, ${opacity})`;
+                ctx.fill();
+            }
+        }
+        
+        function addMessage(text) {
+            const messageEl = document.createElement('p');
+            messageEl.className = 'message';
+            messageEl.textContent = text;
+            messageBox.appendChild(messageEl);
+            messageBox.scrollTop = messageBox.scrollHeight;
+        }
+
+        // --- Event Listeners ---
+
+        toggleButton.addEventListener('click', () => {
+            if (isMonitorActive) {
+                stopMonitor();
+            } else {
+                startMonitor();
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            if(animationFrameId) cancelAnimationFrame(animationFrameId);
+            setupCanvas();
+            if (isMonitorActive) {
+                draw();
+            } else {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                drawGrid(canvas.width / 2, canvas.height / 2, canvas.width / 2);
+            }
+        });
+
+        // --- Initial Setup ---
+        setupCanvas();
+        drawGrid(canvas.width / 2, canvas.height / 2, canvas.width / 2);
+
+    </script>         
+    </body>     
+</html>
