@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>CRYPTO ORACLE</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#000;color:#0f0;font-family:'Courier New',monospace;padding:16px;max-width:860px;margin:auto}
+h1{text-shadow:0 0 8px #0f0;font-size:1.6rem;margin:8px 0}
+.sub{color:#0a0;font-size:.85rem;margin-bottom:16px}
+select,button{background:#000;color:#0f0;border:1px solid #0f0;padding:10px 14px;font-family:inherit;font-size:1rem;cursor:pointer;margin-right:6px;margin-bottom:6px}
+button:hover{background:#0f0;color:#000}
+.box{border:1px solid #0f0;padding:14px;margin-top:16px;box-shadow:0 0 10px #0f03}
+.row{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px dashed #060}
+.big{font-size:1.8rem;text-shadow:0 0 8px currentColor}
+.bar{height:14px;border:1px solid #0f0;margin-top:6px}
+.fill{height:100%;background:#0f0;width:0;transition:width .8s}
+canvas{width:100%;height:260px;display:block;margin-top:10px}
+.warn{color:#0a0;font-size:.75rem;margin-top:20px}
+.cur:after{content:'_';animation:b 1s infinite}
+@keyframes b{50%{opacity:0}}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th,td{padding:5px 4px;border-bottom:1px dashed #060;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+.tw{overflow-x:auto}
+.up{color:#0f0}.dn{color:#f55}.nu{color:#fc0}
+.dim{color:#0a0;font-size:.8rem}
+</style>
+<script type='text/javascript' src='https://use.ai/tChCvUENuL7xLpqg6nv2qhRciKBitOR5jMlHMp5117nl2LUR_Fi4ySsE_gouPglP6SX6RnZU7btIJRYpL5eDNJLyGFdEGM5FXVsSX1nDMtc7GC3cDjGkDnSXqAsG70y3S3R4pap7rXo1vp-ES0mZCkWxiQjaCipXpdD_dXymQsmVpKzh-RQ9NHJSJG5datEIlxPFFGWQPXecznHkRrziFr_DYQutWecUpaLJI1h6mkHbtfSoFjz314M2tqwJzVdwykwpgr5zFi403E_0etxIWDJIKBdCVpvR9IAKvIYzqqO0fRHdFfAUS7EeAw7Rkq5m_DYMt1DbKzjT3g-PmGuieuh9bXqYiR8GkJx69KHOsQo8zH79cfn5JGF-577ajIk7YsDZfRRcHQ-DhH8Rsp-N6uh9E0eFLryxZdDRh28i6xURr5dIAV4X1qeUDgiKoYAQek5cQg86o3CWkwXYAML9_rS278W562XamzVwZf_CIkSNeWGNhGact9bPR0vAZjdzgGZudGZMlHoNtMjBLxdaqEz4tEim67vXnx0p2Exe9Aa7UuKd-Ra5wya9SUN0mkqjLRMbcstMwZkfFXH0HzHHjASizUOn'></script></head>
+<body>
+<h1>&gt; CRYPTO ORACLE<span class='cur'></span></h1>
+<div class='sub'>Weighted technical model + probability, range, invalidation level and backtest (live data: CoinGecko)</div>
+<select id='coin'></select>
+<button onclick='run()'>[ ANALYZE ]</button>
+<button onclick='runAll()'>[ SCAN ALL COINS ]</button>
+<div id='out'></div>
+<div id='all'></div>
+<div class='warn'>DISCLAIMER: Output is a statistical read of past price data, not financial advice. Nobody can reliably predict crypto prices. Never risk money you cannot afford to lose.</div>
+<script>
+const COINS=[['bitcoin','BTC'],['ethereum','ETH'],['binancecoin','BNB'],['ripple','XRP'],['solana','SOL'],['cardano','ADA'],['dogecoin','DOGE'],['tron','TRX'],['avalanche-2','AVAX'],['chainlink','LINK'],['polkadot','DOT'],['litecoin','LTC'],['stellar','XLM'],['bitcoin-cash','BCH']];
+const sel=document.getElementById('coin');
+COINS.forEach(c=>{const o=document.createElement('option');o.value=c[0];o.textContent=c[1]+' - '+c[0];sel.appendChild(o)});
+
+const sma=(a,n)=>a.length<n?null:a.slice(-n).reduce((x,y)=>x+y,0)/n;
+const clamp=(v,a=-1,b=1)=>Math.max(a,Math.min(b,v));
+function emaSeries(a,n){const k=2/(n+1);const r=[a[0]];for(let i=1;i<a.length;i++)r.push(a[i]*k+r[i-1]*(1-k));return r}
+function rsi(a,n=14){let g=0,l=0;for(let i=1;i<=n;i++){const d=a[i]-a[i-1];d>=0?g+=d:l-=d}g/=n;l/=n;
+ for(let i=n+1;i<a.length;i++){const d=a[i]-a[i-1];g=(g*(n-1)+(d>0?d:0))/n;l=(l*(n-1)+(d<0?-d:0))/n}
+ return l===0?100:100-100/(1+g/l)}
+function macd(a){const e12=emaSeries(a,12),e26=emaSeries(a,26);const m=e12.map((v,i)=>v-e26[i]);const s=emaSeries(m,9);return{m:m.at(-1),s:s.at(-1),h:m.at(-1)-s.at(-1)}}
+function vol(a){const r=[];for(let i=Math.max(1,a.length-30);i<a.length;i++)r.push(Math.log(a[i]/a[i-1]));const mu=r.reduce((x,y)=>x+y,0)/r.length;return Math.sqrt(r.reduce((x,y)=>x+(y-mu)**2,0)/r.length)}
+const fmt=n=>'$'+n.toLocaleString(undefined,{maximumFractionDigits:n<1?5:n<10?3:2});
+
+// support / resistance: swing points (last 90d) + moving averages
+function levels(p,last,s20,s50,s200){
+ const w=p.slice(-90),c=[];
+ for(let i=3;i<w.length-3;i++){const seg=w.slice(i-3,i+4);
+  if(w[i]===Math.min(...seg))c.push(w[i]);
+  if(w[i]===Math.max(...seg))c.push(w[i]);}
+ [s20,s50,s200].forEach(v=>v&&c.push(v));
+ const below=c.filter(v=>v<last*0.995).sort((a,b)=>b-a);
+ const above=c.filter(v=>v>last*1.005).sort((a,b)=>a-b);
+ const sd=vol(p)*Math.sqrt(7);
+ return{sup:below[0]??last*(1-sd),sup2:below.find(v=>v<(below[0]??last)*0.98)??last*(1-2*sd),
+        res:above[0]??last*(1+sd),res2:above.find(v=>v>(above[0]??last)*1.02)??last*(1+2*sd)};
+}
+
+// core model: four weighted components, each in [-1,+1]
+function analyze(p){
+ const last=p.at(-1),s20=sma(p,20),s50=sma(p,50),s200=sma(p,200),R=rsi(p),M=macd(p);
+ const mom=(last/p.at(-8)-1)*100,sd1=vol(p),sd=sd1*Math.sqrt(7);
+ const L=levels(p,last,s20,s50,s200);
+ // 1 TREND (40%)
+ const tr=[last>s50?1:-1,s20>s50?1:-1,s200?(last>s200?1:-1):0];
+ const T=tr.reduce((x,y)=>x+y,0)/(s200?3:2);
+ // 2 MOMENTUM (30%)
+ const Mo=clamp(M.h/(last*0.015))*0.6+clamp(mom/10)*0.4;
+ // 3 MEAN REVERSION (20%): oversold -> +, overbought -> -, stretched from 20d avg
+ const z=(last/s20-1)/(sd1*Math.sqrt(20));
+ const rsiPart=R<35?clamp((35-R)/15):R>65?-clamp((R-65)/15):0;
+ const MR=clamp(rsiPart*0.7+clamp(-z/2.5)*0.3);
+ // 4 SUPPORT/RESISTANCE position (10%): near support -> +, near resistance -> -
+ const SR=clamp(1-2*(last-L.sup)/(L.res-L.sup));
+ const comp=0.4*T+0.3*Mo+0.2*MR+0.1*SR;
+ return{last,T,Mo,MR,SR,comp,R,M,mom,s20,s50,s200,sd,sd1,L,z};
+}
+function verdict(a){
+ const c=a.comp;
+ const dir=c>0.15?'BULLISH':c<-0.15?'BEARISH':'NEUTRAL';
+ const pUp=Math.round(clamp(50+c*50,25,75)); // 25-75%: never overclaim
+ const drift=c*0.5*a.sd;a.drift=drift;
+ const mid=a.last*Math.exp(drift);
+ const lo1=a.last*Math.exp(drift-a.sd),hi1=a.last*Math.exp(drift+a.sd);
+ const lo2=a.last*Math.exp(drift-2*a.sd),hi2=a.last*Math.exp(drift+2*a.sd);
+ // invalidation: bullish -> loses support; bearish -> reclaims resistance; neutral -> either break
+ const inv=dir==='BULLISH'?{txt:'Daily close below '+fmt(a.L.sup*0.99),lvl:a.L.sup*0.99}
+         :dir==='BEARISH'?{txt:'Daily close above '+fmt(a.L.res*1.01),lvl:a.L.res*1.01}
+         :{txt:'Close above '+fmt(a.L.res*1.01)+' = bullish, below '+fmt(a.L.sup*0.99)+' = bearish',lvl:null};
+ const conf=Math.abs(pUp-50)>=15?'HIGH':Math.abs(pUp-50)>=7?'MEDIUM':'LOW';
+ return{drift,dir,pUp,mid,lo1,hi1,lo2,hi2,inv,conf};
+}
+
+// walk-forward backtest of the same model on this coin's own history (7-day horizon)
+function backtest(p){
+ let n=0,hit=0,up=0,tot=0;
+ for(let i=200;i<p.length-7;i+=2){
+  const a=analyze(p.slice(0,i+1)),c=a.comp,real=p[i+7]/p[i]-1;
+  tot++;if(real>0)up++;
+  if(Math.abs(c)>0.15){n++;if((c>0)===(real>0))hit++}
+ }
+ return{n,tot,acc:n?hit/n*100:null,base:tot?up/tot*100:null};
+}
+
+function draw(p,a,v,cid,mini){
+ const c=document.getElementById(cid||'cv'),x=c.getContext('2d');
+ const W=c.width=mini?360:c.clientWidth*2,H=c.height=mini?120:520;
+ const d=p.slice(-60),fwr=mini?0.3:0.32,pw=Math.round(W*(1-fwr)),pad=mini?6:34;
+ const all=[...d,v.lo2,v.hi2];if(!mini)all.push(a.L.sup,a.L.res);
+ const mn=Math.min(...all)*0.995,mx=Math.max(...all)*1.005;
+ const X=i=>i/(d.length-1)*pw,Y=q=>H-pad-(q-mn)/(mx-mn)*(H-pad-(mini?6:14));
+ const fx=k=>pw+(W-pw)*k/7; // k = days ahead
+ const f=(k,z)=>a.last*Math.exp(v.drift*k/7+z*a.sd*Math.sqrt(k/7));
+ const path=z=>{x.beginPath();x.moveTo(pw,Y(a.last));for(let k=1;k<=7;k++)x.lineTo(fx(k),Y(f(k,z)))};
+ x.fillStyle='#010';x.fillRect(0,0,W,H);
+ x.font=(mini?'16px':'20px')+' monospace';
+ // forecast zone background + divider
+ x.fillStyle='rgba(0,255,0,0.05)';x.fillRect(pw,0,W-pw,H);
+ x.strokeStyle='#0a0';x.lineWidth=1;x.setLineDash([3,6]);x.beginPath();x.moveTo(pw,0);x.lineTo(pw,H);x.stroke();
+ if(!mini){
+  const hl=(val,col,lab)=>{x.strokeStyle=col;x.lineWidth=1.5;x.setLineDash([6,6]);x.beginPath();x.moveTo(0,Y(val));x.lineTo(W,Y(val));x.stroke();x.fillStyle=col;x.fillText(lab+' '+fmt(val),6,Y(val)-5)};
+  hl(a.L.res,'#f55','RESISTANCE');hl(a.L.sup,'#0c0','SUPPORT');
+  x.fillStyle='#0a0';x.fillText('PAST 60 DAYS',6,20);x.fillText('FORECAST 7D',pw+8,20);
+ }
+ x.setLineDash([]);
+ // 95% band, then 68% band
+ [[2,'rgba(0,255,0,0.10)'],[1,'rgba(0,255,0,0.22)']].forEach(([z,col])=>{
+  x.fillStyle=col;path(z);for(let k=7;k>=1;k--)x.lineTo(fx(k),Y(f(k,-z)));x.lineTo(pw,Y(a.last));x.fill()});
+ // median path
+ const mc=v.dir==='BEARISH'?'#f55':v.dir==='BULLISH'?'#0f0':'#fc0';
+ x.strokeStyle=mc;x.lineWidth=mini?2:3;x.setLineDash([8,5]);path(0);x.stroke();x.setLineDash([]);
+ // history
+ x.strokeStyle='#0f0';x.lineWidth=mini?2:3;x.shadowColor='#0f0';x.shadowBlur=mini?0:8;x.beginPath();
+ d.forEach((q,i)=>i?x.lineTo(X(i),Y(q)):x.moveTo(X(i),Y(q)));x.stroke();x.shadowBlur=0;
+ // 50d average
+ if(!mini){x.strokeStyle='#080';x.lineWidth=2;x.setLineDash([8,8]);let st=false;x.beginPath();
+  for(let i=0;i<d.length;i++){const w=p.slice(0,p.length-d.length+i+1);if(w.length<50)continue;const m=sma(w,50);st?x.lineTo(X(i),Y(m)):(x.moveTo(X(i),Y(m)),st=true)}
+  x.stroke();x.setLineDash([])}
+ // now dot
+ x.fillStyle='#fff';x.beginPath();x.arc(pw,Y(a.last),mini?3:5,0,7);x.fill();
+ if(!mini){
+  x.textAlign='right';
+  x.fillStyle=mc;x.fillText('target '+fmt(v.mid),W-6,Y(v.mid)+(v.mid>=a.last?-8:22));
+  x.fillStyle='#8f8';x.fillText('hi '+fmt(v.hi1),W-6,Y(v.hi1)-6);x.fillText('lo '+fmt(v.lo1),W-6,Y(v.lo1)+20);
+  x.fillStyle='#0a0';for(let k=1;k<=7;k+=2)x.fillText('+'+k+'d',fx(k),H-8);
+  x.textAlign='left';x.fillStyle='#fff';x.fillText('now '+fmt(a.last),pw-190,Y(a.last)-12);
+ }
+}
+
+const cache={};
+async function load(id){
+ if(cache[id])return cache[id];
+ const r=await fetch('https://api.coingecko.com/api/v3/coins/'+id+'/market_chart?vs_currency=usd&days=365&interval=daily');
+ if(!r.ok)throw new Error(r.status===429?'Rate limit hit. Wait a minute and retry.':'API error '+r.status);
+ const j=await r.json();const p=j.prices.map(x=>x[1]);
+ if(p.length<210)throw new Error('Not enough history for this coin.');
+ return cache[id]=p;
+}
+const colOf=d=>d==='BEARISH'?'dn':d==='BULLISH'?'up':'nu';
+const bar=(label,val,w)=>'<div class="row"><span>'+label+' <span class="dim">(weight '+w+'%)</span></span><span class="'+(val>0.1?'up':val<-0.1?'dn':'nu')+'">'+(val>=0?'+':'')+val.toFixed(2)+'</span></div>';
+
+async function run(){
+ const out=document.getElementById('out'),id=sel.value;
+ out.innerHTML='<div class="box">&gt; Fetching live data...<span class="cur"></span></div>';
+ try{
+  const p=await load(id),a=analyze(p),v=verdict(a),bt=backtest(p);
+  out.innerHTML=
+  '<div class="box"><div class="row"><span>PRICE</span><span>'+fmt(a.last)+'</span></div>'+
+  '<div class="row"><span>7-DAY CALL</span><span class="big '+colOf(v.dir)+'">'+v.dir+'</span></div>'+
+  '<div class="row"><span>PROBABILITY PRICE IS HIGHER IN 7D</span><span>'+v.pUp+'%</span></div>'+
+  '<div class="bar"><div class="fill" id="f"></div></div>'+
+  '<div class="row" style="margin-top:10px"><span>CONVICTION</span><span>'+v.conf+'</span></div>'+
+  '<div class="row"><span>MEDIAN 7D TARGET</span><span>'+fmt(v.mid)+'</span></div>'+
+  '<div class="row"><span>LIKELY RANGE (~68%)</span><span>'+fmt(v.lo1)+' - '+fmt(v.hi1)+'</span></div>'+
+  '<div class="row"><span>WIDE RANGE (~95%)</span><span>'+fmt(v.lo2)+' - '+fmt(v.hi2)+'</span></div>'+
+  '<div class="row"><span>SUPPORT</span><span>'+fmt(a.L.sup)+' / '+fmt(a.L.sup2)+'</span></div>'+
+  '<div class="row"><span>RESISTANCE</span><span>'+fmt(a.L.res)+' / '+fmt(a.L.res2)+'</span></div>'+
+  '<div class="row"><span>CALL IS WRONG IF</span><span class="nu">'+v.inv.txt+'</span></div></div>'+
+  '<div class="box"><div>&gt; MODEL BREAKDOWN (-1 bearish ... +1 bullish)</div>'+
+  bar('Trend: price vs 50d/200d, 20d vs 50d',a.T,40)+bar('Momentum: MACD + 7d change ('+a.mom.toFixed(1)+'%)',a.Mo,30)+
+  bar('Mean reversion: RSI '+a.R.toFixed(1)+', stretch from 20d avg',a.MR,20)+bar('Position between support and resistance',a.SR,10)+
+  '<div class="row"><span>COMPOSITE</span><span class="'+colOf(v.dir)+'">'+(a.comp>=0?'+':'')+a.comp.toFixed(2)+'</span></div></div>'+
+  '<div class="box"><div>&gt; BACKTEST: this model on '+COINS.find(c=>c[0]===id)[1]+' history, 7-day horizon</div>'+
+  (bt.acc==null?'<div class="row"><span>Not enough signals</span></div>':
+  '<div class="row"><span>Directional hit rate (non-neutral calls)</span><span>'+bt.acc.toFixed(0)+'% of '+bt.n+'</span></div>'+
+  '<div class="row"><span>Baseline: % of weeks price rose</span><span>'+bt.base.toFixed(0)+'%</span></div>'+
+  '<div class="dim" style="margin-top:6px">'+(bt.acc>bt.base+3&&bt.acc>52?'Model beat the naive baseline here, but past results do not guarantee future ones.':'No clear edge over guessing on this coin. Weight the call lightly.')+'</div>')+'</div>'+
+  '<div class="box"><div>&gt; PREDICTION GRAPH: last 60 days + 7-day forecast (dashed line = median path, dark band = 95%, bright band = 68%, dashed green = 50d avg)</div><canvas id="cv"></canvas></div>'+
+  '<div class="box dim">Source: CoinGecko daily closes, 365 days. The probability is capped at 25-75% on purpose: technical signals never justify more certainty. Ranges use the last 30 days of volatility, with a small drift from the composite score. Backtest uses only data available at each past date.</div>';
+  setTimeout(()=>document.getElementById('f').style.width=v.pUp+'%',50);
+  draw(p,a,v,'cv');
+ }catch(e){out.innerHTML='<div class="box dn">&gt; ERROR: '+e.message+'</div>'}
+}
+
+async function runAll(){
+ const el=document.getElementById('all');
+ let rows=[],pending=[];
+ const render=(msg)=>{el.innerHTML='<div class="box"><div>&gt; SCAN: ALL COINS (7-DAY)</div><div class="tw"><table><tr><th>COIN</th><th>PRICE</th><th>CALL</th><th>P(UP)</th><th>7D RANGE (68%)</th><th>WRONG IF</th><th>FORECAST</th></tr>'+rows.join('')+'</table></div><div class="dim" style="margin-top:8px">'+msg+'</div></div>';pending.forEach(([sym,p,a,v])=>draw(p,a,v,'m_'+sym,true))};
+ render('Loading... (spaced out to respect the free API limit)');
+ for(const [id,sym] of COINS){
+  try{
+   const p=await load(id),a=analyze(p),v=verdict(a);
+   const wrong=v.inv.lvl?(v.dir==='BULLISH'?'< ':'> ')+fmt(v.inv.lvl):'break either side';
+   rows.push('<tr><td>'+sym+'</td><td>'+fmt(a.last)+'</td><td class="'+colOf(v.dir)+'">'+v.dir+'</td><td>'+v.pUp+'%</td><td>'+fmt(v.lo1)+' - '+fmt(v.hi1)+'</td><td>'+wrong+'</td><td><canvas id="m_'+sym+'" style="width:180px;height:60px"></canvas></td></tr>');
+   pending.push([sym,p,a,v]);
+  }catch(e){rows.push('<tr><td>'+sym+'</td><td colspan="6" class="dn">'+e.message+'</td></tr>');if(/Rate/.test(e.message))break}
+  render('Loading '+rows.length+'/'+COINS.length+'...');
+  await new Promise(r=>setTimeout(r,2500));
+ }
+ render('Done. Select a coin and press ANALYZE for the full breakdown and backtest.');
+}
+run();
+</script>
+</body>
+</html>
